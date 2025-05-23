@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beatle - Guess a Bengali Song in 5 Goes</title>
+    <meta name="description" content="Beatle is a music guessing game where you try to identify a Bengali song in 5 attempts. Based on the New York Times Wordle.">
+    <meta name="author" content="Shafquat Tabeeb">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/music-note.svg">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    
+    <!-- Main Styles -->
+    <link rel="stylesheet" href="/src/styles/main.scss">
+</head>
+<body>
+    <div id="app">
+        <!-- Landing Page -->
+        <section id="landing-page" class="landing-page">
+            <div class="landing-content">
+                <h1 class="game-title">Beatle</h1>
+                <p class="game-subtitle">guess a bengali song in 5 gos.</p>
+                <button class="play-button" id="play-button">
+                    Play
+                </button>
+            </div>
+            <footer class="landing-footer">
+                <p class="footer-date" id="footer-date">[Today's Date]</p>
+                <p class="footer-credits">Based on the New York Times Wordle</p>
+                <p class="footer-copyright">2025 © Shafquat Tabeeb</p>
+            </footer>
+        </section>
+
+        <!-- Game Screen (initially hidden) -->
+        <section id="game-screen" class="game-screen hidden">
+            <header class="game-header">
+                <h1 class="game-title">Beatle</h1>
+                <nav class="nav-bar">
+                    <button class="nav-icon" id="help-button" title="How to Play?">
+                        <img src="/assets/icons/gear.svg" alt="Help" />
+                    </button>
+                    <button class="nav-icon" id="reset-button" title="Reset Round">
+                        <img src="/assets/icons/music-note.svg" alt="Reset" />
+                    </button>
+                    <button class="nav-icon" id="theme-button" title="Dark Mode (Coming Soon)">
+                        <img src="/assets/icons/sun.svg" alt="Theme" />
+                    </button>
+                </nav>
+            </header>
+
+            <main class="game-main">
+                <!-- Vinyl Player -->
+                <div class="vinyl-player">
+                    <div class="vinyl-disc" id="vinyl-disc">
+                        <div class="vinyl-center">
+                            <img src="/assets/icons/play.svg" alt="Play" class="play-icon" />
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Guess Interface -->
+                <div class="guess-interface">
+                    <div class="search-box">
+                        <input 
+                            type="text" 
+                            id="guess-input" 
+                            placeholder="Know it? Search for title/artist…"
+                            autocomplete="off"
+                        />
+                        <img src="/assets/icons/dropdown.svg" alt="Dropdown" class="dropdown-icon" />
+                    </div>
+                    <div class="action-buttons">
+                        <button class="skip-button" id="skip-button">
+                            Skip (+1 s)
+                        </button>
+                        <button class="submit-button" id="submit-button">
+                            Submit
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Feedback Display -->
+                <div class="feedback-display" id="feedback-display">
+                    <!-- Feedback messages will be displayed here -->
+                </div>
+            </main>
+        </section>
+
+        <!-- How to Play Popup -->
+        <div id="how-to-play-popup" class="popup-overlay hidden">
+            <div class="popup-content">
+                <h2>How to Play?</h2>
+                <div class="popup-body">
+                    <p>Hear a 2 second snippet of a mystery song.</p>
+                    <p>Type your guess, then hit <strong>Submit!</strong></p>
+                    <p>You can tap <strong>Skip</strong> to hear a little more of the track.</p>
+                    <p>Each time you skip or guess wrong, the snippet gets longer:</p>
+                    <p><strong>2 s → 3 s → 5 s → 8 s → 12 s</strong></p>
+                    <p>You get 5 guesses: can you find the beat?</p>
+                </div>
+                <button class="ready-button" id="ready-button">
+                    Yes, I'm ready!
+                </button>
+            </div>
+        </div>
+
+        <!-- Reset Confirmation Popup -->
+        <div id="reset-popup" class="popup-overlay hidden">
+            <div class="popup-content">
+                <h2>Reset the round?</h2>
+                <div class="popup-body">
+                    <p>This will start a new round with a different song.</p>
+                    <p>Your current progress will be lost.</p>
+                </div>
+                <div class="popup-buttons">
+                    <button class="cancel-button" id="cancel-reset">Cancel</button>
+                    <button class="confirm-button" id="confirm-reset">Yes, reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="victory-screen hidden">
+            <header class="game-header">
+                <h1 class="game-title">Beatle</h1>
+            </header>
+            <main class="victory-main">
+                <div class="vinyl-player victory-vinyl">
+                    <div class="vinyl-disc spinning" id="victory-vinyl">
+                        <div class="vinyl-center">
+                            <img src="/assets/icons/play.svg" alt="Play Full Song" class="play-icon" />
+                        </div>
+                    </div>
+                </div>
+                <div class="victory-content">
+                    <h2 id="victory-song-title">Song Title</h2>
+                    <h3 id="victory-artist">Artist Name</h3>
+                    <p class="victory-message">Great Job!</p>
+                    <p class="victory-time">You got the Beatle within <span id="victory-seconds">0</span> seconds.</p>
+                    <button class="play-again-button" id="play-again-button">
+                        Play Again?
+                    </button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Main JavaScript -->
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html> 
