@@ -1,0 +1,34 @@
+// Color Palette
+$color-primary: #f8d728ff;     // Primary yellow (background)
+$color-black: #000000;         // Black (text, play button)
+$color-dark-gray: #434343;     // Dark gray (footer text, skip button text)
+$color-light-gray: #b7b7b7;    // Light gray (popup body text)
+$color-red: #b41c27ff;         // Red (ready button, reset button)
+$color-blue: #58a2bfff;        // Blue (vinyl center)
+$color-green: #2cb67dff;       // Green (progress bar fill, submit button)
+$color-charcoal: #323136ff;    // Charcoal (cancel button)
+
+// Additional Colors
+$color-white: #ffffff;         // White
+$color-popup-text: #999999;    // Popup body text color (from reset popup spec)
+
+// Typography
+$font-family-primary: 'Lexend', sans-serif;
+$font-weight-regular: 400;
+$font-weight-bold: 700;
+$font-style-italic: italic;
+
+// Layout & Spacing
+$border-radius-default: 12px;
+$border-radius-button: 24px;
+$shadow-default: 0px 4px 8px rgba(0, 0, 0, 0.1);
+$shadow-strong: 0px 6px 12px rgba(0, 0, 0, 0.15);
+
+// Animations
+$transition-default: 0.3s ease;
+$transition-fast: 0.15s ease;
+
+// Breakpoints (for future responsive design)
+$breakpoint-mobile: 768px;
+$breakpoint-tablet: 1024px;
+$breakpoint-desktop: 1200px; 

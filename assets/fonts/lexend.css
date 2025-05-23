@@ -1,0 +1,32 @@
+/* Lexend Font Family */
+@import url('https://fonts.googleapis.com/css2?family=Lexend:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+/* Font face declarations for local hosting (future use) */
+/*
+@font-face {
+  font-family: 'Lexend';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./lexend-regular.woff2') format('woff2'),
+       url('./lexend-regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Lexend';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./lexend-bold.woff2') format('woff2'),
+       url('./lexend-bold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Lexend';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./lexend-italic.woff2') format('woff2'),
+       url('./lexend-italic.woff') format('woff');
+}
+*/ 
