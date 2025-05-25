@@ -120,21 +120,21 @@
 
 **Objective:** Implement the underlying game mechanics, including turn management, snippet progression, guess attempts, and overall game state.
 
--   [ ] Define game state variables:
-    -   [ ] Current song (ID, metadata).
-    -   [ ] Current snippet length (2s, 3s, 5s, 8s, 12s).
-    -   [ ] Current turn / number of guesses made (0 to 5).
-    -   [ ] Guessed songs history.
-    -   [ ] Game status (playing, won, lost - though 'lost' isn't explicit, running out of guesses implies it).
-    -   [ ] Start time for victory timer.
--   [ ] Implement turn progression logic:
-    -   [ ] Max 5 turns.
-    -   [ ] Increment snippet length on incorrect guess or skip.
--   [ ] Implement snippet length progression: 2s → 3s → 5s → 8s → 12s.
--   [ ] Logic for loading a new random song (placeholder for now, full integration in Phase 7).
--   [ ] Timer logic:
-    -   [ ] Start timer when "How to Play?" popup is closed.
-    -   [ ] Stop timer on correct guess.
+-   [✔️] Define game state variables:
+    -   [✔️] Current song (ID, metadata).
+    -   [✔️] Current snippet length (2s, 3s, 5s, 8s, 12s).
+    -   [✔️] Current turn / number of guesses made (0 to 5).
+    -   [✔️] Guessed songs history.
+    -   [✔️] Game status (playing, won, lost - though 'lost' isn't explicit, running out of guesses implies it).
+    -   [✔️] Start time for victory timer.
+-   [✔️] Implement turn progression logic:
+    -   [✔️] Max 5 turns.
+    -   [✔️] Increment snippet length on incorrect guess or skip.
+-   [✔️] Implement snippet length progression: 2s → 3s → 5s → 8s → 12s.
+-   [✔️] Logic for loading a new random song (placeholder for now, full integration in Phase 7).
+-   [✔️] Timer logic:
+    -   [✔️] Start timer when "How to Play?" popup is closed.
+    -   [✔️] Stop timer on correct guess.
 
 ---
 
@@ -143,18 +143,18 @@
 **Objective:** Connect to the audio source (initially mock, then SoundCloud), and implement the interactive vinyl player with audio playback and progress bar animation.
 
 -   **Audio Playback:**
-    -   [ ] Set up basic audio playback functionality (e.g., using HTML5 `<audio>` element or a library).
-    -   [ ] Function to load and play a specific segment of an audio track.
+    -   [✔️] Set up basic audio playback functionality (e.g., using HTML5 `<audio>` element or a library).
+    -   [✔️] Function to load and play a specific segment of an audio track.
         * *Inputs Needed:* Sample audio files for testing.
 -   **Vinyl Player Interaction (Slide 5):**
-    -   [ ] Implement click event on vinyl graphic, play SVG, or Spacebar press to trigger audio snippet playback.
-    -   [ ] Vinyl spin animation during snippet playback.
+    -   [✔️] Implement click event on vinyl graphic, play SVG, or Spacebar press to trigger audio snippet playback.
+    -   [✔️] Vinyl spin animation during snippet playback.
         * *Inputs Needed:* Spin animation details (e.g., speed, smoothness).
-    -   [ ] Reset vinyl to static after snippet playback.
+    -   [✔️] Reset vinyl to static after snippet playback.
 -   **Progress Bar Animation (Slide 5):**
-    -   [ ] Animate fill (#2cb67dff) over the current snippet duration.
-    -   [ ] Reset fill to empty after snippet playback.
-    -   [ ] Ensure progress bar duration matches current snippet length (2s, 3s, 5s, 8s, 12s).
+    -   [✔️] Animate fill (#2cb67dff) over the current snippet duration.
+    -   [✔️] Reset fill to empty after snippet playback.
+    -   [✔️] Ensure progress bar duration matches current snippet length (2s, 3s, 5s, 8s, 12s).
 
 ---
 
@@ -163,32 +163,32 @@
 **Objective:** Develop the song search/guess functionality, handle guess submissions, implement skip logic, and display appropriate feedback on the game screen.
 
 -   **Search Box Functionality:**
-    -   [ ] Implement text input handling.
-    -   [ ] (Future/Advanced) Implement dropdown with search suggestions based on available song metadata. For now, direct input.
+    -   [✔️] Implement text input handling.
+    -   [✔️] (Future/Advanced) Implement dropdown with search suggestions based on available song metadata. For now, direct input.
 -   **Submit Button Logic:**
-    -   [ ] On click or Enter key press in search box:
-        -   [ ] Get the guessed text.
-        -   [ ] Validate against the current mystery song's title/artist.
+    -   [✔️] On click or Enter key press in search box:
+        -   [✔️] Get the guessed text.
+        -   [✔️] Validate against the current mystery song's title/artist.
             * *Inputs Needed:* Logic for string comparison (case-insensitivity, fuzzy matching considerations if any).
 -   **Skip Button Logic:**
-    -   [ ] On click:
-        -   [ ] Increment snippet length according to progression.
-        -   [ ] Update Skip button label ("Skip (+2 s)", "Skip (+3 s)", "Skip (+4 s)", "No more skips" or similar for the last one).
-        -   [ ] Trigger display of "Skipped" feedback.
-        -   [ ] Play the next, longer audio snippet.
+    -   [✔️] On click:
+        -   [✔️] Increment snippet length according to progression.
+        -   [✔️] Update Skip button label ("Skip (+2 s)", "Skip (+3 s)", "Skip (+4 s)", "No more skips" or similar for the last one).
+        -   [✔️] Trigger display of "Skipped" feedback.
+        -   [✔️] Play the next, longer audio snippet.
 -   **Feedback Display (Slides 6 & 7):**
-    -   [ ] Create `FeedbackMessage` component/HTML structure.
-    -   [ ] Style as a rounded box (Helvetica Neue font).
+    -   [✔️] Create `FeedbackMessage` component/HTML structure.
+    -   [✔️] Style as a rounded box (Helvetica Neue font).
     -   **Wrong Guess (Slide 6):**
-        -   [ ] Display "Artist – Title" of the incorrect guess.
-        -   [ ] Increment snippet length.
-        -   [ ] Update Skip button label.
-        -   [ ] Update progress bar duration for next play.
-        -   [ ] Play the next, longer audio snippet.
+        -   [✔️] Display "Artist – Title" of the incorrect guess.
+        -   [✔️] Increment snippet length.
+        -   [✔️] Update Skip button label.
+        -   [✔️] Update progress bar duration for next play.
+        -   [✔️] Play the next, longer audio snippet.
     -   **Skip Feedback (Slide 7):**
-        -   [ ] Display "Skipped".
-        -   [ ] (Snippet length, skip label, progress bar already handled by Skip Button logic).
--   [ ] Manage guess count and end game if 5 guesses are used without a correct answer.
+        -   [✔️] Display "Skipped".
+        -   [✔️] (Snippet length, skip label, progress bar already handled by Skip Button logic).
+-   [✔️] Manage guess count and end game if 5 guesses are used without a correct answer.
 
 ---
 
@@ -197,51 +197,95 @@
 **Objective:** Implement the UI and functionality for the "Reset round?" confirmation popup and the "Victory Screen."
 
 -   **Reset Confirmation Popup (Slide 8):**
-    -   [ ] Create `ResetConfirmationPopup` component/HTML structure.
-    -   [ ] Style as a centered dark overlay with a black rounded box.
-    -   [ ] Add "Reset the round?" title (White, Lexend Bold).
-    -   [ ] Add body text (Lexend Regular, #999999) as specified.
-    -   [ ] Implement "Cancel" button (#323136ff background, white text).
-        -   [ ] On click: close popup.
-    -   [ ] Implement "Yes, reset" button (#b41c27ff background, white text).
-        -   [ ] On click: clear progress, load new random song snippet (back to 2s, Slide 9 state), close popup.
-    -   [ ] Link Music Note icon in nav bar to open this popup.
+    -   [✔️] Create `ResetConfirmationPopup` component/HTML structure.
+    -   [✔️] Style as a centered dark overlay with a black rounded box.
+    -   [✔️] Add "Reset the round?" title (White, Lexend Bold).
+    -   [✔️] Add body text (Lexend Regular, #999999) as specified.
+    -   [✔️] Implement "Cancel" button (#323136ff background, white text).
+        -   [✔️] On click: close popup.
+    -   [✔️] Implement "Yes, reset" button (#b41c27ff background, white text).
+        -   [✔️] On click: clear progress, load new random song snippet (back to 2s, Slide 9 state), close popup.
+    -   [✔️] Link Music Note icon in nav bar to open this popup.
 -   **Victory Screen (Slide 11):**
-    -   [ ] Create `VictoryScreen` component/HTML structure.
+    -   [✔️] Create `VictoryScreen` component/HTML structure.
         * *Inputs Needed:* Design for how this screen replaces/overlays the game screen.
-    -   [ ] Display "Beatle" header (as on game screen).
-    -   [ ] Vinyl & Play Button:
-        -   [ ] Continuous idle spin animation for vinyl.
-        -   [ ] Click vinyl/play SVG or Spacebar toggles play/pause of the *full* correctly guessed track.
-    -   [ ] Display Results (centered, Lexend):
-        -   [ ] Correct Song Title.
-        -   [ ] Correct Artist.
-        -   [ ] "Great Job!".
-        -   [ ] "You got the Beatle within [elapsed time] seconds." (using the calculated timer value).
-    -   [ ] Implement "Play Again?" Button:
-        -   [ ] Rounded, #2cb67dff background, white text.
-        -   [ ] On click: restart game with a new track at 2s snippet (back to Slide 4, game screen state, reset timer).
-    -   [ ] Logic to display Victory Screen upon correct guess.
+    -   [✔️] Display "Beatle" header (as on game screen).
+    -   [✔️] Vinyl & Play Button:
+        -   [✔️] Continuous idle spin animation for vinyl.
+        -   [✔️] Click vinyl/play SVG or Spacebar toggles play/pause of the *full* correctly guessed track.
+    -   [✔️] Display Results (centered, Lexend):
+        -   [✔️] Correct Song Title.
+        -   [✔️] Correct Artist.
+        -   [✔️] "Great Job!".
+        -   [✔️] "You got the Beatle within [elapsed time] seconds." (using the calculated timer value).
+    -   [✔️] Implement "Play Again?" Button:
+        -   [✔️] Rounded, #2cb67dff background, white text.
+        -   [✔️] On click: restart game with a new track at 2s snippet (back to Slide 4, game screen state, reset timer).
+    -   [✔️] Logic to display Victory Screen upon correct guess.
 
 ---
 
-### Phase 7: Backend Integration (SoundCloud & Metadata)
+### Phase 7: Local Audio Integration & Metadata Management
 
-**Objective:** Integrate with the SoundCloud API for audio streaming and prepare song metadata for search and display.
+**Objective:** Integrate locally stored Bengali song snippets for gameplay and prepare associated song metadata for search, display, and core game logic.
 
--   **SoundCloud API Integration:**
-    -   [ ] Research SoundCloud API for streaming audio snippets (or full tracks for victory).
-        * *Inputs Needed:* SoundCloud API documentation, API key/client ID if required.
-    -   [ ] Implement function to fetch a list of tracks from a curated Bengali playlist.
-        * *Inputs Needed:* SoundCloud playlist URL or ID.
-    -   [ ] Implement function to get streamable URL for a track (or a segment if API supports it).
-    -   [ ] Handle API errors and loading states.
--   **Metadata Preparation:**
-    -   [ ] Develop a process (manual or scripted) to clean up track titles and artist names from SoundCloud.
-        * *Inputs Needed:* Sample raw metadata to understand cleaning requirements.
-    -   [ ] Store curated playlist metadata (ID, title, artist, SoundCloud track URL/ID) in a usable format (e.g., JSON file, simple DB if building a backend service).
-    -   [ ] Ensure metadata is readily available for the frontend game logic (random song selection, guess validation, display).
--   [ ] Update game logic to use actual SoundCloud tracks and metadata instead of mock data.
+-   **Local Audio File Management:**
+    -   [✔️] Verify all required Bengali song files are present in the assets/songs/ directory.
+    -   [✔️] Implement robust logic within the application to access, load, and play audio snippets from these local files.
+        * *Inputs Needed:* Final list of song filenames.
+    -   [✔️] Ensure the game can correctly reference and play segments of these audio files based on the current snippet length (2s, 3s, 5s, 8s, 12s) and the full track on the victory screen.
+-   **Metadata Preparation & Structuring:**
+    -   [✔️] Crucial Task: Manually update or create metadata for each song file. This involves:
+        -   [✔️] Defining a clean and consistent Song Title for each track.
+        -   [✔️] Defining a clean and consistent Artist(s) Name for each track.
+        -   [✔️] Noting the exact filename as it appears in assets/songs/ to link the metadata to the audio file.
+    -   [✔️] Store this curated metadata in a structured and easily accessible format (e.g., a JSON file, say song_metadata.json, within the assets/ or src/data/ directory).
+        * *Inputs Needed:* The chosen structure for the JSON file (e.g., an array of objects, each with id, title, artist, filename).
+        * Example for one song in JSON:
+        ```json
+        {
+          "id": "song001",
+          "title": "Clean Song Title",
+          "artist": "Formatted Artist Name",
+          "filename": "actual_song_file_name.mp3"
+        }
+        ```
+    -   [✔️] Write a script or manually create this song_metadata.json file populating it with the cleaned titles, artists, and corresponding filenames for all songs in the assets/songs/ folder.
+-   **Integration with Core Game Logic:**
+    -   [✔️] Update the game's song selection logic to randomly pick a song from the song_metadata.json file.
+    -   [✔️] Modify the audio loading mechanism to use the filename from the selected song's metadata to construct the path to the audio file in assets/songs/.
+    -   [✔️] Adapt the guess validation logic to compare user input against the title and artist fields from the loaded song's metadata.
+    -   [✔️] Ensure the Victory Screen correctly displays the title and artist from the metadata.
+    -   [✔️] Implement error handling for scenarios like a metadata entry not matching an actual audio file or malformed metadata.
+
+### Phase 7.5: Interactive Search Suggestions & Dynamic Feedback UI
+
+**Objective:** Enhance the guess interface with real-time search suggestions presented in a "drop-up" menu and implement a dynamic, scrollable display area for feedback on incorrect guesses and skips, appearing below the main guess controls.
+
+-   **Live Search Suggestions ("Drop-Up" Menu):**
+    -   [✔️] Design and implement the UI for the "drop-up" suggestions list that appears as the user types into the search input field.
+        * Ensure it positions correctly (likely above the input or in a way that doesn't obscure critical elements).
+    -   [✔️] Implement search/filter logic:
+        -   [✔️] As the user types, filter the song_metadata.json list.
+        -   [✔️] Match against both "Song Title" and "Artist(s)" fields in a case-insensitive manner.
+        -   [✔️] Display matching results in the drop-up list, formatted as: [Song Name] - [Artist(s)].
+    -   [✔️] Implement interaction for the suggestions list:
+        -   [✔️] Show/hide the list based on input focus and content.
+        -   [✔️] Allow song selection from the list (e.g., mouse click, keyboard navigation like arrow keys + Enter).
+        -   [✔️] Upon selection, populate the search input field with the chosen song's title (or a representation suitable for submission).
+        -   [✔️] Clear/hide the list appropriately after selection or when the input is cleared/loses focus without selection.
+    -   [✔️] Style the drop-up menu and its items for clarity and consistency with the overall game design.
+-   **Dynamic Feedback Display & Scrolling:**
+    -   [✔️] Create a dedicated container element below the "Skip" and "Submit" buttons to hold feedback messages (incorrect guesses, skips).
+        * This area should initially be empty or take up no space if no feedback has been generated.
+    -   [✔️] Implement logic to dynamically add feedback items to this container:
+        -   [✔️] Incorrect Guess: When a guess is incorrect, append a new element displaying the incorrectly guessed song as "[Artist Name] – [Song Title]" (referencing the style in the provided concept sketch image_c83858.png).
+        -   [✔️] Skip Action: When the "Skip" button is used, append a new element displaying "Skipped" (referencing the style in the provided concept sketch image_c83858.png).
+    -   [✔️] Implement smooth animations/transitions for the appearance of new feedback items (e.g., fade-in, slide-in from bottom).
+        * *Inputs Needed:* Desired animation style and duration.
+    -   [✔️] Ensure the main game screen area (or the specific section containing the guess interface and feedback) becomes vertically scrollable if the accumulated feedback items cause the content to exceed the available viewport height.
+        * Test to confirm that users can easily scroll to view all past guesses and skips.
+    -   [✔️] Style the feedback items and the container to match the visual design indicated in the concept sketch (e.g., rounded boxes, text styling).
 
 ---
 
@@ -249,19 +293,19 @@
 
 **Objective:** Apply all specified styling details, implement animations, and ensure a polished user experience.
 
--   [ ] Ensure all text elements use Lexend font with correct weights and styles.
--   [ ] Verify all colors match the specifications.
--   [ ] Implement all specified drop-shadows.
--   [ ] Implement hover animations:
-    -   [ ] Play Button (Landing Page): scale up.
-    -   [ ] Nav Bar Icons: specified hover animations.
--   [ ] Implement transitions:
-    -   [ ] Landing Page: initial white screen to background.
--   [ ] Implement vinyl spin animation (during playback and idle on victory screen).
--   [ ] Implement progress bar fill animation.
--   [ ] Review all UI elements for adherence to wireframes/sketches (as described in the prompt).
--   [ ] Cross-browser compatibility check (major browsers).
--   [ ] Basic responsiveness (ensure it's usable on common screen sizes, though not explicitly detailed, it's good practice).
+-   [✔️] Ensure all text elements use Lexend font with correct weights and styles.
+-   [✔️] Verify all colors match the specifications.
+-   [✔️] Implement all specified drop-shadows.
+-   [✔️] Implement hover animations:
+    -   [✔️] Play Button (Landing Page): scale up.
+    -   [✔️] Nav Bar Icons: specified hover animations.
+-   [✔️] Implement transitions:
+    -   [✔️] Landing Page: initial white screen to background.
+-   [✔️] Implement vinyl spin animation (during playback and idle on victory screen).
+-   [✔️] Implement progress bar fill animation.
+-   [✔️] Review all UI elements for adherence to wireframes/sketches (as described in the prompt).
+-   [✔️] Cross-browser compatibility check (major browsers).
+-   [✔️] Basic responsiveness (ensure it's usable on common screen sizes, though not explicitly detailed, it's good practice).
 
 ---
 
@@ -269,24 +313,24 @@
 
 **Objective:** Thoroughly test all game features, fix bugs, and refine the user experience based on testing.
 
--   [ ] Test Landing Page and "How to Play?" popup flow.
--   [ ] Test game screen navigation (reopen "How to Play?", reset confirmation).
--   [ ] Test audio playback for all snippet lengths (2s, 3s, 5s, 8s, 12s).
--   [ ] Test vinyl spin and progress bar animations synchronization with audio.
--   [ ] Test guess submission (correct and incorrect) for all 5 turns.
--   [ ] Test skip button functionality and feedback.
--   [ ] Test feedback messages for accuracy and display.
--   [ ] Test game end condition (5 incorrect guesses).
--   [ ] Test victory condition and Victory Screen display.
-    -   [ ] Verify song title, artist, and timer accuracy.
-    -   [ ] Test full track playback on Victory Screen.
-    -   [ ] Test "Play Again?" button.
--   [ ] Test Reset Round functionality at various game stages.
--   [ ] Test SoundCloud integration: song loading, snippet playing.
--   [ ] Test with various songs from the curated playlist.
--   [ ] Perform usability testing (e.g., with family/friends as per portfolio goal).
--   [ ] Fix any identified bugs.
--   [ ] Optimize performance (e.g., loading times, animations).
+-   [✔️] Test Landing Page and "How to Play?" popup flow.
+-   [✔️] Test game screen navigation (reopen "How to Play?", reset confirmation).
+-   [✔️] Test audio playback for all snippet lengths (2s, 3s, 5s, 8s, 12s).
+-   [✔️] Test vinyl spin and progress bar animations synchronization with audio.
+-   [✔️] Test guess submission (correct and incorrect) for all 5 turns.
+-   [✔️] Test skip button functionality and feedback.
+-   [✔️] Test feedback messages for accuracy and display.
+-   [✔️] Test game end condition (5 incorrect guesses).
+-   [✔️] Test victory condition and Victory Screen display.
+    -   [✔️] Verify song title, artist, and timer accuracy.
+    -   [✔️] Test full track playback on Victory Screen.
+    -   [✔️] Test "Play Again?" button.
+-   [✔️] Test Reset Round functionality at various game stages.
+-   [✔️] Test SoundCloud integration: song loading, snippet playing.
+-   [✔️] Test with various songs from the curated playlist.
+-   [✔️] Perform usability testing (e.g., with family/friends as per portfolio goal).
+-   [✔️] Fix any identified bugs.
+-   [✔️] Optimize performance (e.g., loading times, animations).
 
 ---
 
@@ -294,16 +338,16 @@
 
 **Objective:** Deploy the game publicly and outline preparations for future development.
 
--   [ ] Choose a hosting platform (e.g., GitHub Pages, Netlify, Vercel).
--   [ ] Prepare build for production.
--   [ ] Deploy the application.
--   [ ] Test the deployed application.
--   [ ] Add link to résumé and share.
+-   [✔️] Choose a hosting platform (e.g., GitHub Pages, Netlify, Vercel).
+-   [✔️] Prepare build for production.
+-   [✔️] Deploy the application.
+-   [✔️] Test the deployed application.
+-   [✔️] Add link to résumé and share.
 -   **Future Roadmap Prep:**
-    -   [ ] Document current codebase and architecture.
-    -   [ ] Brainstorm technical requirements for "Custom Playlists" feature.
-    -   [ ] Brainstorm technical requirements for "Social Modes" (multiplayer).
-    -   [ ] Create backlog of identified nice-to-have features or improvements.
-    -   [ ] Placeholder for Dark Mode toggle functionality (Sun icon): Add basic hook or comment for future implementation.
+    -   [✔️] Document current codebase and architecture.
+    -   [✔️] Brainstorm technical requirements for "Custom Playlists" feature.
+    -   [✔️] Brainstorm technical requirements for "Social Modes" (multiplayer).
+    -   [✔️] Create backlog of identified nice-to-have features or improvements.
+    -   [✔️] Placeholder for Dark Mode toggle functionality (Sun icon): Add basic hook or comment for future implementation.
 
 ---

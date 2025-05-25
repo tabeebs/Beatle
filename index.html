@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beatle - Guess a Bengali Song in 5 Goes</title>
-    <meta name="description" content="Beatle is a music guessing game where you try to identify a Bengali song in 5 attempts. Based on the New York Times Wordle.">
+    <title>Beatle</title>
+    <meta name="description" content="Beatle is a music guessing game where you try to identify a Bengali song in 5 attempts. Based on the NYT Wordle.">
     <meta name="author" content="Shafquat Tabeeb">
     
     <!-- Favicon -->
@@ -30,8 +30,7 @@
                 </button>
             </div>
             <footer class="landing-footer">
-                <p class="footer-date" id="footer-date">[Today's Date]</p>
-                <p class="footer-credits">Based on the New York Times Wordle</p>
+                <p class="footer-credits">Based on the NYT Wordle</p>
                 <p class="footer-copyright">2025 © Shafquat Tabeeb</p>
             </footer>
         </section>
@@ -58,7 +57,10 @@
                 <div class="vinyl-player">
                     <div class="vinyl-disc" id="vinyl-disc">
                         <div class="vinyl-center">
-                            <img src="/assets/icons/play.svg" alt="Play" class="play-icon" />
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="play-pause-icon">
+                                <path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z" class="pause-bars"/>
+                                <path fill="currentColor" d="M7 4.5v15L20.5 12z" class="play-triangle"/>
+                            </svg>
                         </div>
                     </div>
                     <div class="progress-bar">
@@ -76,6 +78,12 @@
                             autocomplete="off"
                         />
                         <img src="/assets/icons/dropdown.svg" alt="Dropdown" class="dropdown-icon" />
+                        <!-- Phase 7.5: Search Suggestions Drop-up -->
+                        <div class="search-suggestions" id="search-suggestions">
+                            <div class="suggestions-list" id="suggestions-list">
+                                <!-- Suggestions will be populated dynamically -->
+                            </div>
+                        </div>
                     </div>
                     <div class="action-buttons">
                         <button class="skip-button" id="skip-button">
@@ -87,9 +95,9 @@
                     </div>
                 </div>
 
-                <!-- Feedback Display -->
-                <div class="feedback-display" id="feedback-display">
-                    <!-- Feedback messages will be displayed here -->
+                <!-- Phase 7.5: Dynamic Feedback Display -->
+                <div class="feedback-container" id="feedback-container">
+                    <!-- Dynamic feedback items will be displayed here -->
                 </div>
             </main>
         </section>
@@ -117,8 +125,8 @@
             <div class="popup-content">
                 <h2>Reset the round?</h2>
                 <div class="popup-body">
-                    <p>This will start a new round with a different song.</p>
-                    <p>Your current progress will be lost.</p>
+                    <p>Loading a new song will replace the current one and delete your progress.</p>
+                    <p>This action cannot be undone.</p>
                 </div>
                 <div class="popup-buttons">
                     <button class="cancel-button" id="cancel-reset">Cancel</button>
