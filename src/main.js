@@ -47,6 +47,9 @@ const audioManager = {
   currentAudio: null,
   isLoaded: false,
   duration: 0,
+  snippetTimeoutId: null,
+  progressIntervalId: null,
+  isVictoryMode: false,
   
   // Initialize audio element
   init() {
@@ -67,6 +70,11 @@ const audioManager = {
     
     this.currentAudio.addEventListener('ended', () => {
       this.stopPlayback();
+    });
+    
+    // Add time update listener for progress tracking
+    this.currentAudio.addEventListener('timeupdate', () => {
+      this.updateProgress();
     });
     
     console.log('Audio manager initialized');
@@ -100,11 +108,17 @@ const audioManager = {
   },
   
   // Play audio segment (startTime in seconds, duration in seconds)
-  playSegment(startTime = 0, duration = null) {
+  playSegment(startTime = 0, duration = null, isVictory = false) {
     if (!this.currentAudio || !this.isLoaded) {
       console.warn('Audio not loaded');
       return false;
     }
+    
+    // Clear any existing timers
+    this.clearTimers();
+    
+    // Set mode
+    this.isVictoryMode = isVictory;
     
     // Set start position
     this.currentAudio.currentTime = startTime;
@@ -114,12 +128,15 @@ const audioManager = {
     
     if (playPromise) {
       playPromise.then(() => {
-        console.log(`Playing audio from ${startTime}s for ${duration || 'full'}s`);
+        console.log(`Playing audio from ${startTime}s for ${duration || 'full'}s (Victory: ${isVictory})`);
         gameState.isPlaying = true;
         
-        // Set timeout to stop after duration if specified
-        if (duration) {
-          setTimeout(() => {
+        // Start progress tracking for snippets
+        if (duration && !isVictory) {
+          this.startProgressTracking(duration);
+          
+          // Set precise timeout to stop after duration
+          this.snippetTimeoutId = setTimeout(() => {
             this.stopPlayback();
           }, duration * 1000);
         }
@@ -132,12 +149,95 @@ const audioManager = {
     return true;
   },
   
+  // Start progress tracking for snippet playback
+  startProgressTracking(duration) {
+    const progressFill = document.getElementById('progress-fill');
+    if (!progressFill) return;
+    
+    const startTime = this.currentAudio.currentTime;
+    const maxDuration = 12; // Progress bar always represents 12 seconds total
+    
+    // Update progress every 50ms for smooth animation
+    this.progressIntervalId = setInterval(() => {
+      if (!this.currentAudio || this.currentAudio.paused) {
+        this.clearProgressTracking();
+        return;
+      }
+      
+      const elapsed = this.currentAudio.currentTime - startTime;
+      // Progress is based on snippet duration relative to the full 12 seconds
+      const progress = Math.min(elapsed / maxDuration, duration / maxDuration) * 100;
+      
+      progressFill.style.width = `${progress}%`;
+      
+      // Don't stop tracking here - let the audio timeout handle stopping
+      // This ensures the progress bar and vinyl rotation stay synchronized
+    }, 50);
+  },
+  
+  // Clear progress tracking
+  clearProgressTracking() {
+    if (this.progressIntervalId) {
+      clearInterval(this.progressIntervalId);
+      this.progressIntervalId = null;
+    }
+  },
+  
+  // Update progress (called by timeupdate event)
+  updateProgress() {
+    // This can be used for additional progress tracking if needed
+  },
+  
+  // Clear all timers
+  clearTimers() {
+    if (this.snippetTimeoutId) {
+      clearTimeout(this.snippetTimeoutId);
+      this.snippetTimeoutId = null;
+    }
+    this.clearProgressTracking();
+  },
+  
   // Stop audio playback
   stopPlayback() {
     if (this.currentAudio) {
       this.currentAudio.pause();
       gameState.isPlaying = false;
+      this.clearTimers();
+      
+      // Reset progress bar if not in victory mode
+      if (!this.isVictoryMode) {
+        const progressFill = document.getElementById('progress-fill');
+        if (progressFill) {
+          progressFill.style.width = '0%';
+        }
+      }
+      
       console.log('Audio playback stopped');
+    }
+  },
+  
+  // Pause audio (for victory screen toggle)
+  pause() {
+    if (this.currentAudio && !this.currentAudio.paused) {
+      this.currentAudio.pause();
+      gameState.isPlaying = false;
+      this.clearTimers();
+      console.log('Audio playback paused');
+    }
+  },
+  
+  // Resume audio (for victory screen toggle)
+  resume() {
+    if (this.currentAudio && this.currentAudio.paused) {
+      const playPromise = this.currentAudio.play();
+      if (playPromise) {
+        playPromise.then(() => {
+          gameState.isPlaying = true;
+          console.log('Audio playback resumed');
+        }).catch((error) => {
+          console.error('Audio resume failed:', error);
+        });
+      }
     }
   },
   
@@ -322,17 +422,11 @@ function getElapsedTime() {
   return Math.floor((endTime - gameState.gameStartTime) / 1000);
 }
 
-// Progress to next turn (increment snippet length)
+// Progress to next turn (increment turn counter only)
 function progressToNextTurn() {
   if (gameState.currentTurn < gameState.maxTurns - 1) {
     gameState.currentTurn++;
-    
-    // Increment snippet length if not at max
-    if (gameState.currentSnippetIndex < gameState.snippetLengths.length - 1) {
-      gameState.currentSnippetIndex++;
-    }
-    
-    console.log(`Progressed to turn ${gameState.currentTurn + 1}, snippet length: ${getCurrentSnippetLength()}s`);
+    console.log(`Progressed to turn ${gameState.currentTurn + 1}, snippet length remains: ${getCurrentSnippetLength()}s`);
     updateGameUI();
     return true;
   }
@@ -341,6 +435,18 @@ function progressToNextTurn() {
   gameState.status = 'lost';
   console.log('Game over - no more turns remaining');
   updateGameUI();
+  return false;
+}
+
+// Progress snippet length (for skips only)
+function progressSnippetLength() {
+  if (gameState.currentSnippetIndex < gameState.snippetLengths.length - 1) {
+    gameState.currentSnippetIndex++;
+    console.log(`Snippet length increased to: ${getCurrentSnippetLength()}s`);
+    return true;
+  }
+  
+  console.log('Already at maximum snippet length');
   return false;
 }
 
@@ -386,13 +492,21 @@ function processGuess(guessText) {
       showVictoryScreen();
     }, 1500); // Give time for feedback to show
   } else {
-    // Incorrect guess - show feedback and progress
-    const turnNumber = gameState.currentTurn + 1;
-    const ordinal = getOrdinalSuffix(turnNumber);
+    // Incorrect guess - show feedback in proper format (Phase 5.5)
+    const guessedSongInfo = findBestMatchingSong(guess);
+    let feedbackMessage;
     
-    showFeedback('incorrect-guess', `${turnNumber}${ordinal} incorrect guess eg. ${guess}`);
+    if (guessedSongInfo) {
+      // Show the matched song from database in proper format
+      feedbackMessage = `${guessedSongInfo.artist} - ${guessedSongInfo.title}`;
+    } else {
+      // Show the raw guess in a formatted way
+      feedbackMessage = formatGuessAsSong(guess);
+    }
     
-    // Progress to next turn
+    showFeedback('incorrect-guess', feedbackMessage);
+    
+    // Progress to next turn (increment turn counter only, snippet length stays the same)
     const canContinue = progressToNextTurn();
     
     if (!canContinue) {
@@ -403,6 +517,72 @@ function processGuess(guessText) {
   
   updateGameUI();
   return true;
+}
+
+// Helper function to find the best matching song from database for feedback (Phase 5.5)
+function findBestMatchingSong(guess) {
+  if (songDatabase.length === 0) return null;
+  
+  const normalizeString = (str) => {
+    return str.toLowerCase()
+      .trim()
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' '); // Normalize whitespace
+  };
+  
+  const normalizedGuess = normalizeString(guess);
+  
+  // Try to find exact matches first
+  for (const song of songDatabase) {
+    const normalizedTitle = normalizeString(song.title);
+    const normalizedArtist = normalizeString(song.artist);
+    
+    if (normalizedGuess === normalizedTitle || 
+        normalizedGuess === normalizedArtist ||
+        normalizedGuess === `${normalizedArtist} ${normalizedTitle}` ||
+        normalizedGuess === `${normalizedTitle} ${normalizedArtist}`) {
+      return song;
+    }
+  }
+  
+  // Try partial matches
+  for (const song of songDatabase) {
+    const normalizedTitle = normalizeString(song.title);
+    const normalizedArtist = normalizeString(song.artist);
+    const combinedSong = `${normalizedArtist} ${normalizedTitle}`;
+    
+    if (normalizedGuess.includes(normalizedTitle) && normalizedTitle.length >= 3 ||
+        normalizedGuess.includes(normalizedArtist) && normalizedArtist.length >= 3 ||
+        combinedSong.includes(normalizedGuess) && normalizedGuess.length >= 3) {
+      return song;
+    }
+  }
+  
+  return null;
+}
+
+// Helper function to format a raw guess as a song (Phase 5.5)
+function formatGuessAsSong(guess) {
+  const trimmedGuess = guess.trim();
+  
+  // Try to detect if the guess contains both artist and title
+  // Common patterns: "Artist - Title", "Artist: Title", "Title by Artist"
+  if (trimmedGuess.includes(' - ')) {
+    return trimmedGuess; // Already in correct format
+  } else if (trimmedGuess.includes(' by ')) {
+    const parts = trimmedGuess.split(' by ');
+    if (parts.length === 2) {
+      return `${parts[1].trim()} - ${parts[0].trim()}`;
+    }
+  } else if (trimmedGuess.includes(': ')) {
+    const parts = trimmedGuess.split(': ');
+    if (parts.length === 2) {
+      return `${parts[0].trim()} - ${parts[1].trim()}`;
+    }
+  }
+  
+  // If no clear pattern, treat the whole guess as a title with unknown artist
+  return `Unknown Artist - ${trimmedGuess}`;
 }
 
 // Enhanced guess validation with multiple matching strategies
@@ -462,7 +642,7 @@ function processSkip() {
   // Show skip feedback
   showFeedback('skipped', 'Skipped');
   
-  // Progress to next turn (this increments snippet length)
+  // Progress to next turn (increment turn counter)
   const canContinue = progressToNextTurn();
   
   if (!canContinue) {
@@ -471,6 +651,9 @@ function processSkip() {
     const correctArtist = gameState.currentSong.artist;
     showFeedback('game-over', `Game Over! The song was "${correctTitle}" by ${correctArtist}`);
   } else {
+    // Also increment snippet length for skips
+    progressSnippetLength();
+    
     // Automatically play the next, longer snippet after a brief delay
     setTimeout(() => {
       if (gameState.status === 'playing') {
@@ -482,12 +665,7 @@ function processSkip() {
   return true;
 }
 
-// Helper function to get ordinal suffix (1st, 2nd, 3rd, 4th, 5th)
-function getOrdinalSuffix(num) {
-  const suffixes = ['th', 'st', 'nd', 'rd'];
-  const value = num % 100;
-  return suffixes[(value - 20) % 10] || suffixes[value] || suffixes[0];
-}
+
 
 // Enhanced UI updates based on current game state (Phase 5)
 function updateGameUI() {
@@ -499,15 +677,23 @@ function updateGameUI() {
   
   // Update skip button text and state
   const nextLength = getNextSnippetLength();
-  if (nextLength !== null && gameState.status === 'playing') {
-    skipButton.textContent = `Skip (+${nextLength}s)`;
-    skipButton.disabled = false;
-    skipButton.style.opacity = '1';
-  } else if (gameState.status === 'playing') {
-    // Last turn - no more skips available
-    skipButton.textContent = 'No more skips';
-    skipButton.disabled = true;
-    skipButton.style.opacity = '0.6';
+  if (gameState.status === 'playing') {
+    if (gameState.currentTurn < gameState.maxTurns - 1 && nextLength !== null) {
+      // Can skip and will get longer snippet
+      skipButton.textContent = `Skip (+${nextLength}s)`;
+      skipButton.disabled = false;
+      skipButton.style.opacity = '1';
+    } else if (gameState.currentTurn < gameState.maxTurns - 1) {
+      // Can skip but already at max snippet length
+      skipButton.textContent = 'Skip (max length)';
+      skipButton.disabled = false;
+      skipButton.style.opacity = '1';
+    } else {
+      // Last turn - no more skips available
+      skipButton.textContent = 'No more skips';
+      skipButton.disabled = true;
+      skipButton.style.opacity = '0.6';
+    }
   } else {
     // Game over
     skipButton.disabled = true;
@@ -606,7 +792,6 @@ function handleVinylClick() {
   const vinylDisc = document.getElementById('vinyl-disc');
   const vinylCenter = vinylDisc.querySelector('.vinyl-center');
   const playPauseIcon = vinylCenter.querySelector('.play-pause-icon');
-  const progressFill = document.getElementById('progress-fill');
   
   // Only allow playing if game is active
   if (gameState.status !== 'playing') return;
@@ -618,8 +803,6 @@ function handleVinylClick() {
     vinylDisc.classList.remove('spinning');
     vinylCenter.classList.remove('playing');
     playPauseIcon.classList.remove('playing');
-    progressFill.style.width = '0%';
-    progressFill.style.transitionDuration = '';
     gameState.isPlaying = false;
     return;
   }
@@ -632,37 +815,27 @@ function handleVinylClick() {
   vinylDisc.classList.add('spinning');
   vinylCenter.classList.add('playing');
   playPauseIcon.classList.add('playing');
-  gameState.isPlaying = true;
-  
-  // Calculate progress bar fill percentage (max at 12s = 100%)
-  const progressPercent = Math.min((snippetLength / 12) * 100, 100);
-  progressFill.style.transitionDuration = `${snippetLength}s`;
-  progressFill.style.width = `${progressPercent}%`;
   
   console.log(`Playing ${snippetLength}s snippet from ${startTime}s`);
   
   // Play the actual audio segment
-  const playSuccess = audioManager.playSegment(startTime, snippetLength);
+  const playSuccess = audioManager.playSegment(startTime, snippetLength, false);
   
   if (!playSuccess) {
     // If audio failed to play, reset visual state
     vinylDisc.classList.remove('spinning');
     vinylCenter.classList.remove('playing');
     playPauseIcon.classList.remove('playing');
-    progressFill.style.width = '0%';
-    progressFill.style.transitionDuration = '';
     gameState.isPlaying = false;
     console.warn('Failed to play audio segment');
     return;
   }
   
-  // Reset visual state after snippet duration
+  // Set up auto-stop visual feedback - synchronized with audio manager
   setTimeout(() => {
     vinylDisc.classList.remove('spinning');
     vinylCenter.classList.remove('playing');
     playPauseIcon.classList.remove('playing');
-    progressFill.style.width = '0%';
-    progressFill.style.transitionDuration = '';
     gameState.isPlaying = false;
   }, snippetLength * 1000);
 }
@@ -683,7 +856,7 @@ function handleSpacebarPress(event) {
   }
 }
 
-// Enhanced feedback display system (Phase 7.5 - Dynamic & Scrollable)
+// Enhanced feedback display system (Phase 5.5 - Persistent & Scrollable)
 function showFeedback(type, message) {
   const feedbackContainer = document.getElementById('feedback-container');
   
@@ -708,37 +881,10 @@ function showFeedback(type, message) {
     feedbackContainer.scrollTop = feedbackContainer.scrollHeight;
   }, 100);
   
-  // Auto-remove after delay for non-critical messages
-  const removeDelay = type === 'game-over' || type === 'correct-guess' ? 8000 : 5000;
+  // Phase 5.5: Feedback items now persist for the entire game round
+  // No auto-removal - they stay visible until game reset or new round
   
-  setTimeout(() => {
-    if (feedbackItem.parentNode) {
-      feedbackItem.style.opacity = '0';
-      feedbackItem.style.transform = 'translateY(-10px) scale(0.95)';
-      
-      setTimeout(() => {
-        if (feedbackItem.parentNode) {
-          feedbackItem.remove();
-        }
-      }, 300);
-    }
-  }, removeDelay);
-  
-  // Limit number of feedback items (remove oldest if too many)
-  const maxItems = 10;
-  const items = feedbackContainer.querySelectorAll('.feedback-item');
-  if (items.length > maxItems) {
-    const oldestItem = items[0];
-    oldestItem.style.opacity = '0';
-    oldestItem.style.transform = 'translateY(-10px) scale(0.95)';
-    setTimeout(() => {
-      if (oldestItem.parentNode) {
-        oldestItem.remove();
-      }
-    }, 300);
-  }
-  
-  console.log(`Dynamic feedback displayed: ${type} - ${message}`);
+  console.log(`Persistent feedback displayed: ${type} - ${message}`);
 }
 
 // Legacy feedback function for compatibility
@@ -1300,8 +1446,9 @@ function showVictoryScreen() {
     // Update victory screen content
     updateVictoryScreenContent();
     
-    // Start victory vinyl animation
+    // Start victory vinyl animation and immediately play full song
     startVictoryVinylAnimation();
+    startVictoryAudioPlayback();
     
     console.log('Victory screen shown');
   }
@@ -1343,32 +1490,78 @@ function updateVictoryScreenContent() {
 
 function startVictoryVinylAnimation() {
   const victoryVinyl = document.getElementById('victory-vinyl');
-  if (victoryVinyl) {
-    // Start continuous idle spin animation
+  const vinylCenter = victoryVinyl?.querySelector('.vinyl-center');
+  
+  if (victoryVinyl && vinylCenter) {
+    // Initially show pause icon since song will start playing
     victoryVinyl.classList.add('spinning');
+    vinylCenter.classList.add('playing');
+    
+    // Update the icon to show pause state
+    updateVictoryVinylIcon(true);
+  }
+}
+
+function startVictoryAudioPlayback() {
+  // Play the full song immediately when victory screen is shown
+  if (gameState.currentSong.audioUrl) {
+    audioManager.playSegment(0, null, true); // Start from beginning, no duration limit, victory mode
+    console.log('Victory screen: Started playing full song');
+  }
+}
+
+function updateVictoryVinylIcon(isPlaying) {
+  const victoryVinyl = document.getElementById('victory-vinyl');
+  const playPauseIcon = victoryVinyl?.querySelector('.play-pause-icon');
+  
+  if (playPauseIcon) {
+    if (isPlaying) {
+      // Show pause icon
+      playPauseIcon.classList.add('playing');
+    } else {
+      // Show play icon
+      playPauseIcon.classList.remove('playing');
+    }
   }
 }
 
 function handleVictoryVinylClick() {
   const victoryVinyl = document.getElementById('victory-vinyl');
+  const vinylCenter = victoryVinyl?.querySelector('.vinyl-center');
   
-  if (!victoryVinyl) return;
+  if (!victoryVinyl || !vinylCenter) return;
   
   // Toggle between playing full track and paused
   if (audioManager.isPlaying()) {
-    // Stop full track playback
-    audioManager.stopPlayback();
-    victoryVinyl.classList.remove('playing');
-    victoryVinyl.classList.add('spinning'); // Back to idle spin
+    // Pause full track playback
+    audioManager.pause();
+    
+    // Stop spinning and reset to static position
+    victoryVinyl.classList.remove('spinning');
+    vinylCenter.classList.remove('playing');
+    
+    // Update icon to show play state
+    updateVictoryVinylIcon(false);
+    
     console.log('Victory track paused');
   } else {
-    // Play full track from beginning
-    if (gameState.currentSong.audioUrl || audioManager.currentAudio) {
-      audioManager.playSegment(0); // Play full track
-      victoryVinyl.classList.remove('spinning');
-      victoryVinyl.classList.add('playing'); // Faster spin
-      console.log('Victory track playing full song');
+    // Resume or start playing full track
+    if (audioManager.currentAudio && audioManager.currentAudio.currentTime > 0) {
+      // Resume from where we paused
+      audioManager.resume();
+    } else {
+      // Start from beginning
+      audioManager.playSegment(0, null, true);
     }
+    
+    // Start idle spin animation (consistent speed)
+    victoryVinyl.classList.add('spinning');
+    vinylCenter.classList.add('playing');
+    
+    // Update icon to show pause state
+    updateVictoryVinylIcon(true);
+    
+    console.log('Victory track playing/resumed');
   }
 }
 
