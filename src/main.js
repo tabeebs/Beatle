@@ -35,7 +35,10 @@ const gameState = {
   gameEndTime: null,       // Date when game ends (correct guess)
   
   // Audio playing state
-  isPlaying: false
+  isPlaying: false,
+  
+  // Song tracking to prevent repeats
+  playedSongIds: []        // Array of song IDs that have been played in this session
 };
 
 // =====================================
@@ -314,23 +317,55 @@ function getRandomSong() {
   };
 }
 
-// Get random song with fallback options
-async function getRandomSongWithFallback() {
+// Get random song with fallback options, excluding already played songs
+async function getRandomSongWithFallback(excludePlayedSongs = true) {
   if (songDatabase.length === 0) {
     console.error('Song database is empty');
     return null;
   }
   
+  // Filter out already played songs if requested
+  let availableSongs = songDatabase;
+  if (excludePlayedSongs && gameState.playedSongIds.length > 0) {
+    availableSongs = songDatabase.filter(song => !gameState.playedSongIds.includes(song.id));
+    
+    // If all songs have been played, reset the played list and use all songs
+    if (availableSongs.length === 0) {
+      console.log('All songs have been played, resetting played songs list');
+      gameState.playedSongIds = [];
+      availableSongs = songDatabase;
+    }
+  }
+  
+  console.log(`Available songs: ${availableSongs.length} out of ${songDatabase.length} total`);
+  
   // Try up to 3 different songs to find one that loads successfully
   for (let attempt = 0; attempt < 3; attempt++) {
-    const song = getRandomSong();
+    const randomIndex = Math.floor(Math.random() * availableSongs.length);
+    const song = availableSongs[randomIndex];
+    
+    // Construct the audio URL using the filename
+    const audioUrl = `/assets/songs/${song.filename}`;
+    const songWithUrl = {
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      filename: song.filename,
+      audioUrl: audioUrl
+    };
     
     try {
       // Test if the audio file is accessible
-      const response = await fetch(song.audioUrl, { method: 'HEAD' });
+      const response = await fetch(songWithUrl.audioUrl, { method: 'HEAD' });
       if (response.ok) {
-        console.log(`Selected song: "${song.title}" by ${song.artist}`);
-        return song;
+        console.log(`Selected song: "${songWithUrl.title}" by ${songWithUrl.artist}`);
+        
+        // Add to played songs list
+        if (!gameState.playedSongIds.includes(songWithUrl.id)) {
+          gameState.playedSongIds.push(songWithUrl.id);
+        }
+        
+        return songWithUrl;
       } else {
         console.warn(`Audio file not accessible: ${song.filename} (attempt ${attempt + 1})`);
       }
@@ -341,7 +376,22 @@ async function getRandomSongWithFallback() {
   
   // If all attempts fail, return the last song anyway and let audio loading handle the error
   console.warn('Could not verify any audio files, proceeding with last selected song');
-  return getRandomSong();
+  const fallbackSong = availableSongs[Math.floor(Math.random() * availableSongs.length)];
+  const audioUrl = `/assets/songs/${fallbackSong.filename}`;
+  const songWithUrl = {
+    id: fallbackSong.id,
+    title: fallbackSong.title,
+    artist: fallbackSong.artist,
+    filename: fallbackSong.filename,
+    audioUrl: audioUrl
+  };
+  
+  // Add to played songs list
+  if (!gameState.playedSongIds.includes(songWithUrl.id)) {
+    gameState.playedSongIds.push(songWithUrl.id);
+  }
+  
+  return songWithUrl;
 }
 
 // =====================================
@@ -378,7 +428,16 @@ async function initializeNewGame() {
   const guessInput = document.getElementById('guess-input');
   if (guessInput) {
     guessInput.value = '';
+    guessInput.disabled = false; // Ensure input is enabled
+    guessInput.style.opacity = '1';
   }
+  
+  // Reset search state completely
+  searchState.lastQuery = '';
+  searchState.filteredSongs = [];
+  searchState.currentHighlight = -1;
+  searchState.isVisible = false;
+  hideSearchSuggestions();
   
   // Load random song from database (Phase 7 integration)
   const selectedSong = await getRandomSongWithFallback();
@@ -394,6 +453,58 @@ async function initializeNewGame() {
   try {
     await audioManager.loadAudio(gameState.currentSong.audioUrl);
     console.log('Audio loaded successfully for:', gameState.currentSong.title);
+  } catch (error) {
+    console.error('Failed to load audio:', error);
+    // Could fallback to a different song or show error message
+  }
+  
+  // Update UI to reflect initial state
+  updateGameUI();
+}
+
+// Initialize new game with a different song (for "Next Round?" functionality)
+async function initializeNewGameWithDifferentSong(previousSongId) {
+  // Reset game state (but preserve timer for next round)
+  gameState.currentTurn = 0;
+  gameState.currentSnippetIndex = 0;
+  gameState.guessedSongs = [];
+  gameState.status = 'playing';
+  // Don't reset timer here - it will be set when the next round starts
+  // Keep timer state preserved until new round actually starts
+  gameState.isPlaying = false;
+  
+  // Clear previous feedback and input
+  clearFeedback();
+  const guessInput = document.getElementById('guess-input');
+  if (guessInput) {
+    guessInput.value = '';
+    guessInput.disabled = false; // Ensure input is enabled
+    guessInput.style.opacity = '1';
+  }
+  
+  // Reset search state completely
+  searchState.lastQuery = '';
+  searchState.filteredSongs = [];
+  searchState.currentHighlight = -1;
+  searchState.isVisible = false;
+  hideSearchSuggestions();
+  
+  // Get a new song (the function will automatically exclude already played songs)
+  const selectedSong = await getRandomSongWithFallback(true);
+  
+  if (!selectedSong) {
+    console.error('No songs available in database');
+    return;
+  }
+  
+  gameState.currentSong = selectedSong;
+  console.log('Next round initialized with new song:', gameState.currentSong.title, 'by', gameState.currentSong.artist);
+  console.log('Played songs so far:', gameState.playedSongIds.length, 'out of', songDatabase.length);
+  
+  // Load audio file
+  try {
+    await audioManager.loadAudio(gameState.currentSong.audioUrl);
+    console.log('Audio loaded successfully for next round:', gameState.currentSong.title);
   } catch (error) {
     console.error('Failed to load audio:', error);
     // Could fallback to a different song or show error message
@@ -487,12 +598,21 @@ function processGuess(guessText) {
     // Show success feedback
     showFeedback('correct-guess', `🎉 Correct! "${correctTitle}" by ${correctArtist}`);
     
-    // Phase 6: Show victory screen after brief delay
+    // Auto scroll to show the success message
+    setTimeout(() => {
+      console.log('🎯 Triggering scroll after correct guess');
+      scrollToLatestAttempt();
+    }, 300); // Brief delay to let feedback render
+    
+    // Show victory screen after scroll and brief display duration
     setTimeout(() => {
       showVictoryScreen();
-    }, 1500); // Give time for feedback to show
+    }, 2000); // Increased time for scroll + display duration
   } else {
-    // Incorrect guess - show feedback in proper format (Phase 5.5)
+    // Incorrect guess - trigger animations first, then scroll to show the feedback
+    console.log('❌ Incorrect guess! Starting error sequence with animations then scroll');
+    
+    // 1. Prepare feedback message
     const guessedSongInfo = findBestMatchingSong(guess);
     let feedbackMessage;
     
@@ -504,14 +624,31 @@ function processGuess(guessText) {
       feedbackMessage = formatGuessAsSong(guess);
     }
     
+    // 2. Show feedback BEFORE progressing turn to get correct attempt number
     showFeedback('incorrect-guess', feedbackMessage);
     
-    // Progress to next turn (increment turn counter only, snippet length stays the same)
+    // 3. Trigger error animation immediately (simultaneous red background + shake)
+    triggerErrorAnimation();
+    
+    // 4. Scroll to show the new feedback after animations complete
+    setTimeout(() => {
+      console.log('🎯 Triggering scroll after incorrect guess animations');
+      scrollToLatestAttempt();
+    }, 700); // Wait for animations to finish (500ms shake + 200ms buffer)
+    
+    // 5. Progress to next turn (increment turn counter only, snippet length stays the same)
     const canContinue = progressToNextTurn();
     
+    // 6. Redirect to loss state if no more turns
     if (!canContinue) {
-      // Game over - no more turns
-      showFeedback('game-over', `Game Over! The song was "${correctTitle}" by ${correctArtist}`);
+      setTimeout(() => {
+        // Set game status to lost
+        gameState.status = 'lost';
+        // Redirect to loss state after 1.2 s
+        setTimeout(() => {
+          showLossScreen();
+        }, 1200);
+      }, 700); // Wait for auto-scroll to complete
     }
   }
   
@@ -585,7 +722,7 @@ function formatGuessAsSong(guess) {
   return `Unknown Artist - ${trimmedGuess}`;
 }
 
-// Enhanced guess validation with multiple matching strategies
+// Enhanced guess validation with strict matching (only exact matches allowed)
 function validateGuess(guess, correctTitle, correctArtist) {
   const normalizeString = (str) => {
     return str.toLowerCase()
@@ -597,35 +734,14 @@ function validateGuess(guess, correctTitle, correctArtist) {
   const normalizedGuess = normalizeString(guess);
   const normalizedTitle = normalizeString(correctTitle);
   const normalizedArtist = normalizeString(correctArtist);
+  const combinedCorrect = `${normalizedArtist} ${normalizedTitle}`;
+  const combinedCorrectAlt = `${normalizedTitle} ${normalizedArtist}`;
   
-  // Strategy 1: Exact match (case-insensitive)
-  if (normalizedGuess === normalizedTitle || normalizedGuess === normalizedArtist) {
-    return true;
-  }
-  
-  // Strategy 2: Partial match (contains)
-  if (normalizedTitle.includes(normalizedGuess) || normalizedArtist.includes(normalizedGuess)) {
-    // Only accept if guess is substantial (at least 3 characters)
-    return normalizedGuess.length >= 3;
-  }
-  
-  // Strategy 3: Guess contains the correct answer
-  if (normalizedGuess.includes(normalizedTitle) || normalizedGuess.includes(normalizedArtist)) {
-    return true;
-  }
-  
-  // Strategy 4: Word-based matching (any significant word matches)
-  const guessWords = normalizedGuess.split(' ').filter(word => word.length >= 3);
-  const titleWords = normalizedTitle.split(' ').filter(word => word.length >= 3);
-  const artistWords = normalizedArtist.split(' ').filter(word => word.length >= 3);
-  
-  for (const guessWord of guessWords) {
-    if (titleWords.includes(guessWord) || artistWords.includes(guessWord)) {
-      return true;
-    }
-  }
-  
-  return false;
+  // Only allow exact matches to prevent false wins from partial input
+  return normalizedGuess === normalizedTitle || 
+         normalizedGuess === normalizedArtist ||
+         normalizedGuess === combinedCorrect ||
+         normalizedGuess === combinedCorrectAlt;
 }
 
 // Enhanced skip processing (Phase 5)
@@ -639,27 +755,38 @@ function processSkip() {
   // Stop any currently playing audio
   audioManager.stopPlayback();
   
-  // Show skip feedback
+  // Show skip feedback BEFORE progressing turn to get correct attempt number
   showFeedback('skipped', 'Skipped');
+  
+  // Scroll to show the new skip feedback immediately
+  setTimeout(() => {
+    console.log('🎯 Triggering scroll after skip action');
+    scrollToLatestAttempt();
+  }, 300); // Brief delay to let feedback render
   
   // Progress to next turn (increment turn counter)
   const canContinue = progressToNextTurn();
   
   if (!canContinue) {
-    // Game over - no more turns
-    const correctTitle = gameState.currentSong.title;
-    const correctArtist = gameState.currentSong.artist;
-    showFeedback('game-over', `Game Over! The song was "${correctTitle}" by ${correctArtist}`);
+    // Game over - no more turns, redirect to loss state
+    setTimeout(() => {
+      // Set game status to lost
+      gameState.status = 'lost';
+      // Redirect to loss state after 250ms
+      setTimeout(() => {
+        showLossScreen();
+      }, 250);
+    }, 300); // Wait for skip feedback to show
   } else {
     // Also increment snippet length for skips
     progressSnippetLength();
     
-    // Automatically play the next, longer snippet after a brief delay
+    // Automatically play the next, longer snippet after feedback is shown
     setTimeout(() => {
       if (gameState.status === 'playing') {
         handleVinylClick();
       }
-    }, 800); // Give time for feedback to show
+    }, 1000); // Give more time for scroll and feedback to show
   }
   
   return true;
@@ -705,10 +832,12 @@ function updateGameUI() {
     guessInput.disabled = true;
     guessInput.style.opacity = '0.6';
     guessInput.placeholder = gameState.status === 'won' ? 'You won!' : 'Game over';
+    console.log('Input disabled - game not playing');
   } else {
     guessInput.disabled = false;
     guessInput.style.opacity = '1';
-    guessInput.placeholder = 'Know it? Search for title/artist…';
+    guessInput.placeholder = searchState.originalPlaceholder;
+    console.log('Input enabled - game is playing');
   }
   
   // Update submit button state (this also calls updateSubmitButtonState)
@@ -741,6 +870,9 @@ function setTodaysDate() {
 function startLandingTransition() {
   const landingPage = document.getElementById('landing-page');
   
+  // Add landing-active class to body to hide scroll
+  document.body.classList.add('landing-active');
+  
   // Start with white screen
   landingPage.classList.add('initial');
   
@@ -761,30 +893,89 @@ function showHowToPlayPopup() {
   const popup = document.getElementById('how-to-play-popup');
   const gameScreen = document.getElementById('game-screen');
   
+  // Mark that this popup was opened from initial play (not gear button)
+  popup.dataset.openedFromGear = 'false';
+  
   // Show game screen underneath
   gameScreen.classList.remove('hidden');
   
-  // Show popup
+  // Show popup immediately (we'll handle the delay later)
   popup.classList.remove('hidden');
 }
 
-// Hide "How to Play?" popup
-async function hideHowToPlayPopup() {
+// Show "How to Play?" popup without resetting the game (for gear button)
+function showHowToPlayPopupOnly() {
   const popup = document.getElementById('how-to-play-popup');
-  const landingPage = document.getElementById('landing-page');
   
-  // Hide popup
-  popup.classList.add('hidden');
+  // Mark that this popup was opened from gear button (not initial play)
+  popup.dataset.openedFromGear = 'true';
+  
+  // Just show the popup without any game state changes
+  popup.classList.remove('hidden');
+}
+
+// Transition from landing page to game screen
+async function transitionToGameScreen() {
+  const landingPage = document.getElementById('landing-page');
+  const gameScreen = document.getElementById('game-screen');
+  
+  console.log('Transitioning to game screen...');
+  
+  // Remove landing-active class to enable scrolling for game screen
+  document.body.classList.remove('landing-active');
   
   // Hide landing page
   landingPage.classList.add('hidden');
   
-  // Phase 4: Initialize audio manager first
+  // Show game screen
+  gameScreen.classList.remove('hidden');
+  
+  console.log('Game screen visible, classes:', gameScreen.className);
+  
+  // Initialize audio manager
   audioManager.init();
   
-  // Phase 3: Start game timer and initialize new game
-  startGameTimer();
+  // Initialize new game
   await initializeNewGame();
+  
+  console.log('Game initialized, showing popup in 500ms');
+  
+  // Show popup after brief delay
+  setTimeout(() => {
+    showHowToPlayPopupWithTransition();
+  }, 500);
+}
+
+// Show "How to Play?" popup with smooth transition (for initial game start)
+function showHowToPlayPopupWithTransition() {
+  const popup = document.getElementById('how-to-play-popup');
+  
+  // Mark that this popup was opened from game screen (second time)
+  popup.dataset.openedFromGear = 'game-screen';
+  
+  // Add transition class for smooth appearance
+  popup.style.opacity = '0';
+  popup.classList.remove('hidden');
+  
+  // Animate in
+  setTimeout(() => {
+    popup.style.transition = 'opacity 0.3s ease-out';
+    popup.style.opacity = '1';
+  }, 50);
+}
+
+// Hide "How to Play?" popup (legacy function, kept for compatibility)
+async function hideHowToPlayPopup() {
+  // This function is now handled by transitionToGameScreen()
+  await transitionToGameScreen();
+}
+
+// Hide "How to Play?" popup without resetting the game (for gear button)
+function hideHowToPlayPopupOnly() {
+  const popup = document.getElementById('how-to-play-popup');
+  
+  // Just hide the popup without any game state changes
+  popup.classList.add('hidden');
 }
 
 // Phase 4: Vinyl player functionality with real audio integration
@@ -843,22 +1034,137 @@ function handleVinylClick() {
 // Add spacebar support for vinyl player
 function handleSpacebarPress(event) {
   if (event.code === 'Space') {
-    // Prevent default spacebar scroll behavior
-    event.preventDefault();
-    
     // Only trigger if not typing in input field
     const activeElement = document.activeElement;
-    const isTyping = activeElement && activeElement.tagName === 'INPUT';
+    const isTyping = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
     
     if (!isTyping) {
+      // Prevent default spacebar scroll behavior only when not typing
+      event.preventDefault();
       handleVinylClick();
     }
   }
 }
 
+// Smooth scroll to the latest attempt feedback
+function scrollToLatestAttempt() {
+  console.log('🔄 scrollToLatestAttempt called');
+  
+  const feedbackContainer = document.getElementById('feedback-container');
+  
+  if (!feedbackContainer) {
+    console.log('❌ Feedback container not found for latest attempt scroll');
+    return;
+  }
+  
+  // Wait a moment for DOM to update, then scroll
+  setTimeout(() => {
+    // Get the last feedback item
+    const feedbackItems = feedbackContainer.querySelectorAll('.feedback-item');
+    const lastFeedbackItem = feedbackItems[feedbackItems.length - 1];
+    
+    console.log('📋 Found feedback items:', feedbackItems.length);
+    
+    if (lastFeedbackItem) {
+      // Force a layout recalculation
+      feedbackContainer.offsetHeight;
+      lastFeedbackItem.offsetHeight;
+      
+      // Get the feedback container's position relative to the document
+      const containerRect = feedbackContainer.getBoundingClientRect();
+      const itemRect = lastFeedbackItem.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate scroll target to show the feedback area prominently
+      // Scroll to show the feedback container with some padding from the top
+      const scrollTarget = window.scrollY + containerRect.top - 100;
+      
+      console.log('📍 Scroll calculation:', {
+        feedbackItemsCount: feedbackItems.length,
+        scrollTarget: scrollTarget,
+        currentScrollY: window.scrollY,
+        containerTop: containerRect.top,
+        containerBottom: containerRect.bottom,
+        itemTop: itemRect.top,
+        itemBottom: itemRect.bottom,
+        viewportHeight: viewportHeight
+      });
+      
+      // Force scroll to the feedback area
+      window.scrollTo({
+        top: Math.max(0, scrollTarget),
+        behavior: 'smooth'
+      });
+      
+      // Also try scrollIntoView as a backup
+      setTimeout(() => {
+        lastFeedbackItem.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      }, 100);
+      
+      console.log('✅ Scrolling to latest attempt initiated (with backup scrollIntoView)');
+    } else {
+      console.log('❌ No feedback items found for scrolling');
+    }
+  }, 100); // Slightly longer delay to ensure DOM is fully updated
+}
+
+// Enhanced error animation system for incorrect guesses
+function triggerErrorAnimation() {
+  const gameScreen = document.getElementById('game-screen');
+  const gameMain = document.querySelector('.game-main');
+  const vinylCenter = document.querySelector('.vinyl-center');
+  
+  if (!gameScreen || !gameMain) {
+    console.warn('Could not find game screen or game main element for error animation');
+    return;
+  }
+  
+  console.log('🔴 Triggering error animation: content shake + solid red background + vinyl center flash');
+  
+  // Add shake animation to content container and solid red background to screen
+  gameMain.classList.add('error-horizontal-shake');
+  gameScreen.classList.add('error-background-static');
+  
+  // Add vinyl center red flash animation if vinyl center exists
+  if (vinylCenter) {
+    vinylCenter.classList.add('error-vinyl-center-flash');
+  }
+  
+  console.log('Added animation classes:', {
+    gameMainClasses: gameMain.className,
+    gameScreenClasses: gameScreen.className,
+    vinylCenterClasses: vinylCenter?.className
+  });
+  
+  // Remove shake animation class after 500ms
+  setTimeout(() => {
+    gameMain.classList.remove('error-horizontal-shake');
+    console.log('🔴 Removed shake animation class from content');
+  }, 500);
+  
+  // Remove background static class after 500ms (same duration as shake)
+  setTimeout(() => {
+    gameScreen.classList.remove('error-background-static');
+    console.log('🔴 Removed background static animation class');
+  }, 500);
+  
+  // Remove vinyl center flash class after 500ms (same duration as other animations)
+  setTimeout(() => {
+    if (vinylCenter) {
+      vinylCenter.classList.remove('error-vinyl-center-flash');
+      console.log('🔴 Removed vinyl center flash animation class');
+    }
+  }, 500);
+}
+
 // Enhanced feedback display system (Phase 5.5 - Persistent & Scrollable)
 function showFeedback(type, message) {
   const feedbackContainer = document.getElementById('feedback-container');
+  const gameScreen = document.getElementById('game-screen');
   
   if (!feedbackContainer) {
     // Fallback to old system if new container doesn't exist
@@ -866,25 +1172,63 @@ function showFeedback(type, message) {
     return;
   }
   
+  const isFirstFeedback = feedbackContainer.children.length === 0;
+  
+  // Show the feedback container with animation if this is the first feedback
+  if (isFirstFeedback) {
+    feedbackContainer.classList.add('visible');
+    // Add has-feedback class to body and game screen to enable scrolling
+    document.body.classList.add('has-feedback');
+    if (gameScreen) {
+      gameScreen.classList.add('has-feedback');
+    }
+  }
+  
+  // Calculate attempt number (current turn + 1, since we're showing the result of the current attempt)
+  const attemptNumber = gameState.currentTurn + 1;
+  const isLastAttempt = attemptNumber === gameState.maxTurns;
+  
   // Create feedback item element
   const feedbackItem = document.createElement('div');
-  feedbackItem.className = `feedback-item ${type}`;
+  feedbackItem.className = `feedback-item ${type} attempt-${attemptNumber}`;
   
   // Set message content
   feedbackItem.textContent = message;
   
+  // Only add attempt badge for actual attempts (not game over messages)
+  if (type !== 'game-over') {
+    // Create attempt number badge
+    const attemptBadge = document.createElement('div');
+    attemptBadge.className = 'attempt-number';
+    
+    if (isLastAttempt) {
+      attemptBadge.textContent = 'LAST ATTEMPT';
+    } else {
+      const ordinals = ['', 'FIRST ATTEMPT', 'SECOND ATTEMPT', 'THIRD ATTEMPT', 'FOURTH ATTEMPT'];
+      attemptBadge.textContent = ordinals[attemptNumber] || `ATTEMPT ${attemptNumber}`;
+    }
+    
+    // Add the attempt badge to the feedback item
+    feedbackItem.appendChild(attemptBadge);
+  }
+  
   // Add to container at the end (newest at bottom)
   feedbackContainer.appendChild(feedbackItem);
   
-  // Auto-scroll to bottom to show newest feedback
-  setTimeout(() => {
-    feedbackContainer.scrollTop = feedbackContainer.scrollHeight;
-  }, 100);
+  // Don't auto-scroll here - let the calling function handle scrolling timing
+  // This prevents conflicts with manual scroll calls
+  
+  // For first feedback, delay the item animation to sync with scroll
+  if (isFirstFeedback) {
+    feedbackItem.style.animationDelay = '0.3s'; // Faster sync with scroll completion
+  } else {
+    feedbackItem.style.animationDelay = '0.1s'; // Much shorter delay for subsequent attempts
+  }
   
   // Phase 5.5: Feedback items now persist for the entire game round
   // No auto-removal - they stay visible until game reset or new round
   
-  console.log(`Persistent feedback displayed: ${type} - ${message}`);
+  console.log(`Persistent feedback displayed: ${type} - ${message} (Attempt ${attemptNumber})`);
 }
 
 // Legacy feedback function for compatibility
@@ -929,12 +1273,76 @@ function showLegacyFeedback(type, message) {
   console.log(`Legacy feedback displayed: ${type} - ${message}`);
 }
 
+// Smooth scroll to feedback area (gentle auto-scroll that respects user control)
+function smoothScrollToFeedback() {
+  const feedbackContainer = document.getElementById('feedback-container');
+  
+  if (!feedbackContainer) {
+    console.log('Feedback container not found');
+    return;
+  }
+  
+  // Wait for the feedback container to be visible and positioned
+  setTimeout(() => {
+    // Get the last feedback item to scroll to the newest one
+    const feedbackItems = feedbackContainer.querySelectorAll('.feedback-item');
+    const lastFeedbackItem = feedbackItems[feedbackItems.length - 1];
+    
+    if (lastFeedbackItem) {
+      // Force a layout recalculation
+      feedbackContainer.offsetHeight;
+      
+      // Calculate scroll position to show the newest feedback item
+      const containerRect = feedbackContainer.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      
+      console.log('Feedback container position:', {
+        top: containerRect.top,
+        bottom: containerRect.bottom,
+        viewportHeight: viewportHeight,
+        scrollY: window.scrollY
+      });
+      
+      // Only auto-scroll if the feedback is not visible or barely visible
+      // This gives users more control over their scroll position
+      if (containerRect.top > viewportHeight * 0.8 || containerRect.bottom < viewportHeight * 0.2) {
+        // Position the feedback container in a comfortable viewing area
+        const scrollTarget = window.scrollY + containerRect.top - (viewportHeight * 0.4);
+        
+        // Gentle smooth scroll to the target position
+        window.scrollTo({
+          top: Math.max(0, scrollTarget),
+          behavior: 'smooth'
+        });
+        
+        console.log('Auto-scrolling to feedback area (gentle), target:', scrollTarget);
+      } else {
+        console.log('Feedback already visible, skipping auto-scroll to preserve user control');
+      }
+    } else {
+      console.log('No feedback items found');
+    }
+  }, 200);
+}
+
 // Clear all feedback messages
 function clearFeedback() {
   const feedbackContainer = document.getElementById('feedback-container');
+  const gameScreen = document.getElementById('game-screen');
+  
   if (feedbackContainer) {
     feedbackContainer.innerHTML = '';
+    feedbackContainer.classList.remove('visible');
   }
+  
+  // Remove has-feedback class from body and game screen to reset layout
+  document.body.classList.remove('has-feedback');
+  if (gameScreen) {
+    gameScreen.classList.remove('has-feedback');
+  }
+  
+  // Don't force scroll to top - let users maintain their scroll position
+  // This gives users more autonomy over their viewing experience
   
   // Also clear legacy feedback display for compatibility
   const feedbackDisplay = document.getElementById('feedback-display');
@@ -960,27 +1368,84 @@ function handleSubmitClick() {
   // Only allow submit if game is active and input has value
   if (gameState.status !== 'playing' || !guessValue) return;
   
+  // Only allow submission if the input exactly matches a song from the database
+  const exactMatch = findExactSongMatch(guessValue);
+  if (!exactMatch) {
+    // Check if it's a valid song that was already guessed
+    const isAlreadyGuessed = checkIfSongAlreadyGuessed(guessValue);
+    showSearchValidationMessage(isAlreadyGuessed);
+    return;
+  }
+  
   // Process guess through game logic
   processGuess(guessValue);
   
-  // Clear input
-  guessInput.value = '';
+  // Don't clear input immediately - let user see what they submitted
+  // Clear it after a short delay to allow for continued searching
+  setTimeout(() => {
+    if (guessInput && gameState.status === 'playing') {
+      guessInput.value = '';
+      
+      // Completely reset input styling to ensure it's functional
+      guessInput.disabled = false;
+      guessInput.style.opacity = '1';
+      guessInput.style.backgroundColor = '#ffffff'; // Force white background
+      guessInput.style.borderColor = '';
+      guessInput.style.boxShadow = '';
+      guessInput.placeholder = searchState.originalPlaceholder;
+      
+      // Reset search state to ensure dropdown works for next search
+      searchState.lastQuery = '';
+      searchState.filteredSongs = [];
+      searchState.currentHighlight = -1;
+      searchState.isVisible = false;
+      hideSearchSuggestions();
+      
+      // Force focus and ensure input is ready
+      guessInput.focus();
+      guessInput.click(); // Additional trigger to ensure responsiveness
+      
+      console.log('Input cleared and search state reset for next guess');
+      console.log('Input state after reset:', {
+        disabled: guessInput.disabled,
+        value: guessInput.value,
+        focused: document.activeElement === guessInput,
+        backgroundColor: guessInput.style.backgroundColor
+      });
+    }
+  }, 500);
 }
 
 // Play button click handler
 function handlePlayButtonClick() {
-  showHowToPlayPopup();
+  // Directly transition to game screen and show popup after delay
+  transitionToGameScreen();
 }
 
 // Ready button click handler
 function handleReadyButtonClick() {
-  hideHowToPlayPopup();
-}
-
-// Input enter key handler
-function handleInputEnter(event) {
-  if (event.key === 'Enter') {
-    handleSubmitClick();
+  const howToPlayPopup = document.getElementById('how-to-play-popup');
+  const gameScreen = document.getElementById('game-screen');
+  
+  console.log('Ready button clicked, popup opened from:', howToPlayPopup.dataset.openedFromGear);
+  
+  // Check if popup was opened from gear button or game screen
+  if (howToPlayPopup.dataset.openedFromGear === 'true') {
+    // Opened from gear button - just hide
+    hideHowToPlayPopupOnly();
+  } else {
+    // Opened from game screen or initial play - hide and start timer
+    howToPlayPopup.classList.add('hidden');
+    howToPlayPopup.style.opacity = '';
+    howToPlayPopup.style.transition = '';
+    
+    // Ensure game screen is visible
+    gameScreen.classList.remove('hidden');
+    
+    console.log('Game screen should now be visible, starting timer');
+    
+    // Start game timer when user is ready
+    startGameTimer();
   }
 }
 
@@ -1016,12 +1481,6 @@ function initEventListeners() {
     submitButton.addEventListener('click', handleSubmitClick);
   }
   
-  // Guess input enter key
-  const guessInput = document.getElementById('guess-input');
-  if (guessInput) {
-    guessInput.addEventListener('keydown', handleInputEnter);
-  }
-  
   // Phase 6: Reset button in nav bar
   const resetButton = document.getElementById('reset-button');
   if (resetButton) {
@@ -1050,18 +1509,30 @@ function initEventListeners() {
     playAgainButton.addEventListener('click', handlePlayAgain);
   }
   
+  // Loss screen elements
+  const lossVinyl = document.getElementById('loss-vinyl');
+  if (lossVinyl) {
+    lossVinyl.addEventListener('click', handleLossVinylClick);
+  }
+  
+  const lossPlayAgainButton = document.getElementById('loss-play-again-button');
+  if (lossPlayAgainButton) {
+    lossPlayAgainButton.addEventListener('click', handleLossPlayAgain);
+  }
+  
   // Phase 6: Help button (gear icon) to reopen "How to Play?" popup
   const helpButton = document.getElementById('help-button');
   if (helpButton) {
-    helpButton.addEventListener('click', showHowToPlayPopup);
+    helpButton.addEventListener('click', showHowToPlayPopupOnly);
   }
   
   // Enhanced Escape key handler (Phase 6)
   document.addEventListener('keydown', handleEscapeKeyEnhanced);
   
-  // Phase 4: Spacebar for vinyl player + Phase 6: Victory screen spacebar
+  // Phase 4: Spacebar for vinyl player + Phase 6: Victory screen spacebar + Loss screen spacebar
   document.addEventListener('keydown', handleSpacebarPress);
   document.addEventListener('keydown', handleVictorySpacebarPress);
+  document.addEventListener('keydown', handleLossSpacebarPress);
   
   // Enhanced popup overlay click handlers (Phase 6)
   const howToPlayPopup = document.getElementById('how-to-play-popup');
@@ -1109,7 +1580,9 @@ const searchState = {
   isVisible: false,
   currentHighlight: -1,
   filteredSongs: [],
-  lastQuery: ''
+  lastQuery: '',
+  originalPlaceholder: 'Know it? Search for title/artist…',
+  lastNavigationTime: 0 // Add timestamp to prevent rapid navigation calls
 };
 
 // Enhanced search box functionality with live suggestions
@@ -1118,9 +1591,22 @@ function initializeSearchBox() {
   
   if (!guessInput) return;
   
+  // Prevent duplicate event listeners
+  if (guessInput.dataset.searchInitialized === 'true') {
+    console.log('Search box already initialized, skipping');
+    return;
+  }
+  guessInput.dataset.searchInitialized = 'true';
+  
   // Input validation and formatting with live search
   guessInput.addEventListener('input', (event) => {
     const value = event.target.value;
+    
+    console.log('Input event fired:', {
+      value: value,
+      disabled: event.target.disabled,
+      gameStatus: gameState.status
+    });
     
     // Trim whitespace and limit length
     if (value.length > 100) {
@@ -1155,21 +1641,51 @@ function initializeSearchBox() {
     if (event.key === 'Enter') {
       event.preventDefault();
       
-      // If a suggestion is highlighted, select it
-      if (searchState.isVisible && searchState.currentHighlight >= 0) {
-        selectSuggestion(searchState.currentHighlight);
+      // If suggestions are visible
+      if (searchState.isVisible && searchState.filteredSongs.length > 0) {
+        // If a suggestion is highlighted, select it
+        if (searchState.currentHighlight >= 0) {
+          selectSuggestion(searchState.currentHighlight);
+        } else {
+          // Auto-select the first available (non-guessed) song
+          const firstAvailableIndex = searchState.filteredSongs.findIndex(song => !song.isAlreadyGuessed);
+          if (firstAvailableIndex >= 0) {
+            selectSuggestion(firstAvailableIndex);
+          }
+        }
       } else {
+        // No suggestions visible - try direct submission
         const value = guessInput.value.trim();
         if (value && gameState.status === 'playing') {
-          handleSubmitClick();
+          const exactMatch = findExactSongMatch(value);
+          if (exactMatch) {
+            // Show clear feedback that the song was selected
+            showSongSelectionFeedback(exactMatch);
+            // Small delay before submission to show the feedback
+            setTimeout(() => {
+              handleSubmitClick();
+            }, 300);
+          } else {
+            // Check if it's a valid song that was already guessed
+            const isAlreadyGuessed = checkIfSongAlreadyGuessed(value);
+            showSearchValidationMessage(isAlreadyGuessed);
+          }
         }
       }
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      navigateSuggestions(1);
+      event.stopPropagation(); // Prevent other handlers from interfering
+      if (searchState.isVisible) {
+        console.log('⬇️ ArrowDown pressed - calling navigateSuggestions(1)');
+        navigateSuggestions(1); // Down arrow moves to next item (index + 1)
+      }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      navigateSuggestions(-1);
+      event.stopPropagation(); // Prevent other handlers from interfering
+      if (searchState.isVisible) {
+        console.log('⬆️ ArrowUp pressed - calling navigateSuggestions(-1)');
+        navigateSuggestions(-1); // Up arrow moves to previous item (index - 1)
+      }
     } else if (event.key === 'Escape') {
       hideSearchSuggestions();
       guessInput.blur();
@@ -1178,18 +1694,50 @@ function initializeSearchBox() {
   
   // Initialize suggestions container click handling
   initializeSuggestionsContainer();
+  
+  // Add additional event listeners to ensure input responsiveness
+  guessInput.addEventListener('click', () => {
+    console.log('Input clicked, ensuring focus and functionality');
+    if (!guessInput.disabled && gameState.status === 'playing') {
+      guessInput.focus();
+      if (guessInput.value.trim()) {
+        handleSearchInput(guessInput.value);
+      }
+    }
+  });
+  
+  // Add keyup listener as backup for input events
+  guessInput.addEventListener('keyup', (event) => {
+    if (!guessInput.disabled && gameState.status === 'playing') {
+      console.log('Keyup event:', event.key, 'Value:', guessInput.value);
+      handleSearchInput(guessInput.value);
+    }
+  });
 }
 
 // Handle search input and filter suggestions
 function handleSearchInput(query) {
   const trimmedQuery = query.trim();
   
+  console.log('handleSearchInput called with:', {
+    query: query,
+    trimmedQuery: trimmedQuery,
+    gameStatus: gameState.status,
+    currentTurn: gameState.currentTurn
+  });
+  
   if (trimmedQuery.length === 0) {
     hideSearchSuggestions();
+    // Reset placeholder when input is cleared
+    const guessInput = document.getElementById('guess-input');
+    if (guessInput) {
+      guessInput.placeholder = searchState.originalPlaceholder;
+    }
     return;
   }
   
   if (trimmedQuery === searchState.lastQuery) {
+    console.log('Query unchanged, skipping');
     return; // No change
   }
   
@@ -1197,19 +1745,32 @@ function handleSearchInput(query) {
   searchState.filteredSongs = filterSongs(trimmedQuery);
   searchState.currentHighlight = -1;
   
+  // Reset placeholder when user is actively typing
+  const guessInput = document.getElementById('guess-input');
+  if (guessInput && query.length > 0) {
+    guessInput.placeholder = searchState.originalPlaceholder;
+  }
+  
+  console.log('Filtered songs:', searchState.filteredSongs.length);
+  
   if (searchState.filteredSongs.length > 0) {
     renderSuggestions();
     showSearchSuggestions();
+    console.log('Showing suggestions dropdown');
   } else {
     hideSearchSuggestions();
+    console.log('No songs found, hiding suggestions');
   }
 }
 
-// Filter songs based on search query
+// Filter songs based on search query, including already guessed songs with special marking
 function filterSongs(query) {
   if (songDatabase.length === 0) return [];
   
   const normalizedQuery = normalizeSearchString(query);
+  
+  // Get list of already guessed song IDs
+  const guessedSongIds = getGuessedSongIds();
   
   return songDatabase.filter(song => {
     const normalizedTitle = normalizeSearchString(song.title);
@@ -1217,7 +1778,10 @@ function filterSongs(query) {
     
     return normalizedTitle.includes(normalizedQuery) || 
            normalizedArtist.includes(normalizedQuery);
-  }).slice(0, 8); // Limit to 8 suggestions
+  }).map(song => ({
+    ...song,
+    isAlreadyGuessed: guessedSongIds.includes(song.id)
+  })).slice(0, 8); // Limit to 8 suggestions
 }
 
 // Normalize string for search comparison
@@ -1237,7 +1801,9 @@ function renderSuggestions() {
   
   searchState.filteredSongs.forEach((song, index) => {
     const suggestionItem = document.createElement('div');
-    suggestionItem.className = 'suggestion-item';
+    suggestionItem.className = song.isAlreadyGuessed 
+      ? 'suggestion-item already-guessed' 
+      : 'suggestion-item';
     suggestionItem.dataset.index = index;
     
     suggestionItem.innerHTML = `
@@ -1245,15 +1811,20 @@ function renderSuggestions() {
       <div class="song-artist">${escapeHtml(song.artist)}</div>
     `;
     
-    // Add click handler
-    suggestionItem.addEventListener('click', () => {
-      selectSuggestion(index);
-    });
-    
-    // Add hover handler
-    suggestionItem.addEventListener('mouseenter', () => {
-      highlightSuggestion(index);
-    });
+    // Add click handler only for songs that haven't been guessed
+    if (!song.isAlreadyGuessed) {
+      suggestionItem.addEventListener('click', () => {
+        selectSuggestion(index);
+      });
+      
+      // Add hover handler
+      suggestionItem.addEventListener('mouseenter', () => {
+        highlightSuggestion(index);
+      });
+    } else {
+      // For already guessed songs, show they're not selectable
+      suggestionItem.style.cursor = 'not-allowed';
+    }
     
     suggestionsList.appendChild(suggestionItem);
   });
@@ -1265,6 +1836,16 @@ function showSearchSuggestions() {
   if (searchSuggestions && searchState.filteredSongs.length > 0) {
     searchSuggestions.classList.add('visible');
     searchState.isVisible = true;
+    
+    // Reset highlight when showing suggestions and highlight first song
+    searchState.currentHighlight = -1;
+    
+    // Auto-highlight the first song for better UX
+    if (searchState.filteredSongs.length > 0) {
+      searchState.currentHighlight = 0;
+    }
+    
+    updateHighlight();
   }
 }
 
@@ -1275,31 +1856,69 @@ function hideSearchSuggestions() {
     searchSuggestions.classList.remove('visible');
     searchState.isVisible = false;
     searchState.currentHighlight = -1;
-    updateHighlight();
+    updateHighlight(); // This will also reset the placeholder via updateInputPreview()
   }
 }
 
-// Navigate suggestions with keyboard
+// Navigate suggestions with keyboard, moving sequentially through all songs
 function navigateSuggestions(direction) {
   if (!searchState.isVisible || searchState.filteredSongs.length === 0) return;
   
-  const newIndex = searchState.currentHighlight + direction;
+  // Add a timestamp to detect if this is being called multiple times rapidly
+  const timestamp = Date.now();
   
-  if (newIndex >= 0 && newIndex < searchState.filteredSongs.length) {
-    searchState.currentHighlight = newIndex;
-  } else if (direction > 0) {
-    searchState.currentHighlight = 0; // Wrap to first
-  } else {
-    searchState.currentHighlight = searchState.filteredSongs.length - 1; // Wrap to last
+  // Prevent rapid successive calls (debounce with 50ms threshold)
+  if (timestamp - searchState.lastNavigationTime < 50) {
+    console.log('🚫 Navigation call ignored - too rapid (within 50ms)');
+    return;
+  }
+  searchState.lastNavigationTime = timestamp;
+  
+  console.log('🔍 Navigation called at', timestamp, ':', {
+    direction: direction,
+    currentHighlight: searchState.currentHighlight,
+    totalSongs: searchState.filteredSongs.length,
+    songTitles: searchState.filteredSongs.map(s => s.title)
+  });
+  
+  // If no song is currently highlighted, start with first or last song
+  if (searchState.currentHighlight === -1) {
+    if (direction > 0) {
+      // Going down - start with first song
+      searchState.currentHighlight = 0;
+    } else {
+      // Going up - start with last song
+      searchState.currentHighlight = searchState.filteredSongs.length - 1;
+    }
+    updateHighlight();
+    console.log('🎯 Started navigation at index:', searchState.currentHighlight, 'Song:', searchState.filteredSongs[searchState.currentHighlight]?.title);
+    return;
   }
   
+  // Move to next/previous song sequentially
+  let newIndex = searchState.currentHighlight + direction;
+  
+  // Handle wrapping
+  if (newIndex < 0) {
+    newIndex = searchState.filteredSongs.length - 1; // Wrap to last song
+  } else if (newIndex >= searchState.filteredSongs.length) {
+    newIndex = 0; // Wrap to first song
+  }
+  
+  const oldIndex = searchState.currentHighlight;
+  searchState.currentHighlight = newIndex;
   updateHighlight();
+  console.log('🎯 Navigated from index:', oldIndex, 'to index:', searchState.currentHighlight, 
+    'Song:', searchState.filteredSongs[searchState.currentHighlight]?.title,
+    'Already guessed:', searchState.filteredSongs[searchState.currentHighlight]?.isAlreadyGuessed);
 }
 
 // Highlight a specific suggestion
 function highlightSuggestion(index) {
-  searchState.currentHighlight = index;
-  updateHighlight();
+  if (index >= 0 && index < searchState.filteredSongs.length) {
+    searchState.currentHighlight = index;
+    updateHighlight();
+  }
 }
 
 // Update visual highlighting of suggestions
@@ -1313,6 +1932,33 @@ function updateHighlight() {
       item.classList.remove('highlighted');
     }
   });
+  
+  // Update input placeholder with preview of highlighted song
+  updateInputPreview();
+}
+
+// Update input placeholder with preview of currently highlighted song
+function updateInputPreview() {
+  const guessInput = document.getElementById('guess-input');
+  if (!guessInput) return;
+  
+  // If there's a highlighted song and suggestions are visible, show preview
+  if (searchState.isVisible && 
+      searchState.currentHighlight >= 0 && 
+      searchState.currentHighlight < searchState.filteredSongs.length) {
+    
+    const highlightedSong = searchState.filteredSongs[searchState.currentHighlight];
+    
+    // Only show preview for songs that haven't been guessed
+    if (!highlightedSong.isAlreadyGuessed) {
+      const preview = `${highlightedSong.title} - ${highlightedSong.artist}`;
+      guessInput.placeholder = preview;
+      return;
+    }
+  }
+  
+  // Reset to original placeholder if no valid highlight
+  guessInput.placeholder = searchState.originalPlaceholder;
 }
 
 // Select a suggestion
@@ -1320,11 +1966,20 @@ function selectSuggestion(index) {
   if (index < 0 || index >= searchState.filteredSongs.length) return;
   
   const selectedSong = searchState.filteredSongs[index];
+  
+  // Don't allow selection of already guessed songs
+  if (selectedSong.isAlreadyGuessed) {
+    return;
+  }
+  
   const guessInput = document.getElementById('guess-input');
   
   if (guessInput) {
     guessInput.value = selectedSong.title;
     updateSubmitButtonState();
+    
+    // Show visual feedback that the song was selected
+    showSongSelectionFeedback(selectedSong);
   }
   
   hideSearchSuggestions();
@@ -1351,6 +2006,101 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Get list of already guessed song IDs in current game
+function getGuessedSongIds() {
+  return gameState.guessedSongs.map(guessRecord => {
+    // Find the song that matches this guess
+    const matchedSong = songDatabase.find(song => {
+      const normalizedGuess = normalizeSearchString(guessRecord.guess);
+      const normalizedTitle = normalizeSearchString(song.title);
+      const normalizedArtist = normalizeSearchString(song.artist);
+      const combinedSong = `${normalizedArtist} ${normalizedTitle}`;
+      const combinedSongAlt = `${normalizedTitle} ${normalizedArtist}`;
+      
+      return normalizedGuess === normalizedTitle || 
+             normalizedGuess === normalizedArtist ||
+             normalizedGuess === combinedSong ||
+             normalizedGuess === combinedSongAlt;
+    });
+    
+    return matchedSong ? matchedSong.id : null;
+  }).filter(id => id !== null); // Remove null values
+}
+
+// Check if a song input matches an already guessed song
+function checkIfSongAlreadyGuessed(input) {
+  if (songDatabase.length === 0) return false;
+  
+  const normalizedInput = normalizeSearchString(input);
+  const guessedSongIds = getGuessedSongIds();
+  
+  // Find if this input matches any song in the database
+  const matchedSong = songDatabase.find(song => {
+    const normalizedTitle = normalizeSearchString(song.title);
+    const normalizedArtist = normalizeSearchString(song.artist);
+    const combinedSong = `${normalizedArtist} ${normalizedTitle}`;
+    const combinedSongAlt = `${normalizedTitle} ${normalizedArtist}`;
+    
+    return normalizedInput === normalizedTitle || 
+           normalizedInput === normalizedArtist ||
+           normalizedInput === combinedSong ||
+           normalizedInput === combinedSongAlt;
+  });
+  
+  // Return true if the matched song was already guessed
+  return matchedSong && guessedSongIds.includes(matchedSong.id);
+}
+
+// Find exact song match from database (for validation)
+function findExactSongMatch(input) {
+  if (songDatabase.length === 0) return null;
+  
+  const normalizedInput = normalizeSearchString(input);
+  
+  // Also check if this song has already been guessed
+  const guessedSongIds = getGuessedSongIds();
+  
+  return songDatabase.find(song => {
+    // Skip if already guessed
+    if (guessedSongIds.includes(song.id)) {
+      return false;
+    }
+    
+    const normalizedTitle = normalizeSearchString(song.title);
+    const normalizedArtist = normalizeSearchString(song.artist);
+    const combinedSong = `${normalizedArtist} ${normalizedTitle}`;
+    const combinedSongAlt = `${normalizedTitle} ${normalizedArtist}`;
+    
+    return normalizedInput === normalizedTitle || 
+           normalizedInput === normalizedArtist ||
+           normalizedInput === combinedSong ||
+           normalizedInput === combinedSongAlt;
+  });
+}
+
+// Show validation message when user tries to submit invalid input
+function showSearchValidationMessage(isAlreadyGuessed = false) {
+  const guessInput = document.getElementById('guess-input');
+  if (!guessInput) return;
+  
+  // Temporarily change placeholder to show validation message
+  const originalPlaceholder = guessInput.placeholder;
+  const message = isAlreadyGuessed 
+    ? 'You already guessed this song! Try a different one.'
+    : 'Please select a song from the dropdown list';
+  
+  guessInput.placeholder = message;
+  guessInput.style.borderColor = '#b41c27';
+  guessInput.style.boxShadow = '0px 4px 12px rgba(180, 28, 39, 0.3)';
+  
+  // Reset after 2.5 seconds (longer for the "already guessed" message)
+  setTimeout(() => {
+    guessInput.placeholder = originalPlaceholder;
+    guessInput.style.borderColor = '';
+    guessInput.style.boxShadow = '';
+  }, isAlreadyGuessed ? 2500 : 2000);
+}
+
 // Update submit button state based on input and game state
 function updateSubmitButtonState() {
   const guessInput = document.getElementById('guess-input');
@@ -1358,8 +2108,9 @@ function updateSubmitButtonState() {
   
   if (!guessInput || !submitButton) return;
   
-  const hasInput = guessInput.value.trim().length > 0;
-  const canSubmit = hasInput && gameState.status === 'playing';
+  const inputValue = guessInput.value.trim();
+  const hasValidInput = inputValue.length > 0 && findExactSongMatch(inputValue);
+  const canSubmit = hasValidInput && gameState.status === 'playing';
   
   submitButton.disabled = !canSubmit;
   submitButton.style.opacity = canSubmit ? '1' : '0.6';
@@ -1373,8 +2124,13 @@ function updateSubmitButtonState() {
       submitButton.style.background = '#b41c27';
     }
   } else {
-    submitButton.textContent = 'Submit';
-    submitButton.style.background = '#2cb67d';
+    if (inputValue.length > 0 && !hasValidInput) {
+      submitButton.textContent = 'Select from list';
+      submitButton.style.background = '#b41c27';
+    } else {
+      submitButton.textContent = 'Submit';
+      submitButton.style.background = '#2cb67d';
+    }
   }
 }
 
@@ -1484,7 +2240,15 @@ function updateVictoryScreenContent() {
   
   if (seconds) {
     const elapsedTime = getElapsedTime();
-    seconds.textContent = elapsedTime;
+    // Ensure we have a valid elapsed time (minimum 1 second if timer was running)
+    const displayTime = elapsedTime > 0 ? elapsedTime : (gameState.gameStartTime ? 1 : 0);
+    seconds.textContent = displayTime;
+    console.log('Victory screen timer:', {
+      gameStartTime: gameState.gameStartTime,
+      gameEndTime: gameState.gameEndTime,
+      elapsedTime: elapsedTime,
+      displayTime: displayTime
+    });
   }
 }
 
@@ -1576,7 +2340,10 @@ function handleVictorySpacebarPress(event) {
 }
 
 async function handlePlayAgain() {
-  console.log('Starting new game...');
+  console.log('Starting next round...');
+  
+  // Store the current song to ensure we get a different one
+  const previousSongId = gameState.currentSong.id;
   
   // Hide victory screen
   hideVictoryScreen();
@@ -1584,8 +2351,8 @@ async function handlePlayAgain() {
   // Stop any audio
   audioManager.stopPlayback();
   
-  // Initialize new game
-  await initializeNewGame();
+  // Initialize new game with a different song
+  await initializeNewGameWithDifferentSong(previousSongId);
   
   // Update UI
   updateGameUI();
@@ -1593,10 +2360,182 @@ async function handlePlayAgain() {
   // Clear any feedback
   clearFeedback();
   
-  // Start new timer
-  gameState.gameStartTime = Date.now();
+  // Start new timer precisely when "Next Round?" is clicked
+  startGameTimer();
   
-  console.log('New game started');
+  console.log('Next round started with new song');
+}
+
+// =====================================
+// LOSS STATE FUNCTIONS
+// =====================================
+
+function showLossScreen() {
+  const lossScreen = document.getElementById('loss-screen');
+  const gameScreen = document.getElementById('game-screen');
+  
+  if (!lossScreen) return;
+  
+  // Hide game screen
+  if (gameScreen) {
+    gameScreen.classList.add('hidden');
+  }
+  
+  // Show loss screen
+  lossScreen.classList.remove('hidden');
+  
+  // Update loss screen content
+  updateLossScreenContent();
+  
+  // Start loss vinyl animation and audio
+  startLossVinylAnimation();
+  startLossAudioPlayback();
+  
+  console.log('Loss screen displayed');
+}
+
+function hideLossScreen() {
+  const lossScreen = document.getElementById('loss-screen');
+  const gameScreen = document.getElementById('game-screen');
+  
+  if (!lossScreen) return;
+  
+  // Hide loss screen
+  lossScreen.classList.add('hidden');
+  
+  // Show game screen
+  if (gameScreen) {
+    gameScreen.classList.remove('hidden');
+  }
+  
+  // Stop any audio
+  audioManager.stopPlayback();
+  
+  console.log('Loss screen hidden');
+}
+
+function updateLossScreenContent() {
+  const songTitle = document.getElementById('loss-song-title');
+  const artist = document.getElementById('loss-artist');
+  
+  if (songTitle && artist) {
+    songTitle.textContent = gameState.currentSong.title;
+    artist.textContent = gameState.currentSong.artist;
+  }
+}
+
+function startLossVinylAnimation() {
+  const lossVinyl = document.getElementById('loss-vinyl');
+  const vinylCenter = lossVinyl?.querySelector('.vinyl-center');
+  
+  if (lossVinyl && vinylCenter) {
+    // Initially show pause icon since song will start playing
+    lossVinyl.classList.add('spinning');
+    vinylCenter.classList.add('playing');
+    
+    // Update the icon to show pause state
+    updateLossVinylIcon(true);
+  }
+}
+
+function startLossAudioPlayback() {
+  // Play the full song immediately when loss screen is shown
+  if (gameState.currentSong.audioUrl) {
+    audioManager.playSegment(0, null, false); // Start from beginning, no duration limit, not victory mode
+    console.log('Loss screen: Started playing full song');
+  }
+}
+
+function updateLossVinylIcon(isPlaying) {
+  const lossVinyl = document.getElementById('loss-vinyl');
+  const playPauseIcon = lossVinyl?.querySelector('.play-pause-icon');
+  
+  if (playPauseIcon) {
+    if (isPlaying) {
+      // Show pause icon
+      playPauseIcon.classList.add('playing');
+    } else {
+      // Show play icon
+      playPauseIcon.classList.remove('playing');
+    }
+  }
+}
+
+function handleLossVinylClick() {
+  const lossVinyl = document.getElementById('loss-vinyl');
+  const vinylCenter = lossVinyl?.querySelector('.vinyl-center');
+  
+  if (!lossVinyl || !vinylCenter) return;
+  
+  // Toggle between playing full track and paused
+  if (audioManager.isPlaying()) {
+    // Pause full track playback
+    audioManager.pause();
+    
+    // Stop spinning and reset to static position
+    lossVinyl.classList.remove('spinning');
+    vinylCenter.classList.remove('playing');
+    
+    // Update icon to show play state
+    updateLossVinylIcon(false);
+    
+    console.log('Loss track paused');
+  } else {
+    // Resume or start playing full track
+    if (audioManager.currentAudio && audioManager.currentAudio.currentTime > 0) {
+      // Resume from where we paused
+      audioManager.resume();
+    } else {
+      // Start from beginning
+      audioManager.playSegment(0, null, false);
+    }
+    
+    // Start idle spin animation (consistent speed)
+    lossVinyl.classList.add('spinning');
+    vinylCenter.classList.add('playing');
+    
+    // Update icon to show pause state
+    updateLossVinylIcon(true);
+    
+    console.log('Loss track playing/resumed');
+  }
+}
+
+function handleLossSpacebarPress(event) {
+  if (event.code === 'Space') {
+    const lossScreen = document.getElementById('loss-screen');
+    if (!lossScreen.classList.contains('hidden')) {
+      event.preventDefault();
+      handleLossVinylClick();
+    }
+  }
+}
+
+async function handleLossPlayAgain() {
+  console.log('Starting next round from loss screen...');
+  
+  // Store the current song to ensure we get a different one
+  const previousSongId = gameState.currentSong.id;
+  
+  // Hide loss screen
+  hideLossScreen();
+  
+  // Stop any audio
+  audioManager.stopPlayback();
+  
+  // Initialize new game with a different song
+  await initializeNewGameWithDifferentSong(previousSongId);
+  
+  // Update UI
+  updateGameUI();
+  
+  // Clear any feedback
+  clearFeedback();
+  
+  // Start new timer precisely when "Play Again?" is clicked
+  startGameTimer();
+  
+  console.log('Next round started from loss screen with new song');
 }
 
 // Enhanced Escape key handler for all popups
@@ -1606,7 +2545,12 @@ function handleEscapeKeyEnhanced(event) {
     const resetPopup = document.getElementById('reset-popup');
     
     if (!howToPlayPopup.classList.contains('hidden')) {
-      hideHowToPlayPopup();
+      // Check if popup was opened from gear button or initial play
+      if (howToPlayPopup.dataset.openedFromGear === 'true') {
+        hideHowToPlayPopupOnly();
+      } else {
+        hideHowToPlayPopup();
+      }
     } else if (!resetPopup.classList.contains('hidden')) {
       hideResetConfirmationPopup();
     }
@@ -1620,7 +2564,12 @@ function handlePopupOverlayClickEnhanced(event) {
     const resetPopup = document.getElementById('reset-popup');
     
     if (event.target === howToPlayPopup) {
-      hideHowToPlayPopup();
+      // Check if popup was opened from gear button or initial play
+      if (howToPlayPopup.dataset.openedFromGear === 'true') {
+        hideHowToPlayPopupOnly();
+      } else {
+        hideHowToPlayPopup();
+      }
     } else if (event.target === resetPopup) {
       hideResetConfirmationPopup();
     }
@@ -1657,6 +2606,90 @@ window.testPlayPauseAnimation = function() {
     console.log('Animation returned to "paused" state');
   }, 3000);
 };
+
+// Test function to demonstrate error animation
+// Call this in browser console: testErrorAnimation()
+window.testErrorAnimation = function() {
+  console.log('🧪 Testing error animation...');
+  triggerErrorAnimation();
+  console.log('You should see a red flash and screen shake animation!');
+};
+
+// Test function to verify navigation is working correctly
+// Call this in browser console: testNavigation()
+window.testNavigation = function() {
+  console.log('🧪 Testing navigation...');
+  console.log('Current search state:', {
+    isVisible: searchState.isVisible,
+    currentHighlight: searchState.currentHighlight,
+    filteredSongs: searchState.filteredSongs.length,
+    songTitles: searchState.filteredSongs.map(s => s.title)
+  });
+  
+  if (!searchState.isVisible) {
+    console.log('❌ Search suggestions not visible. Type something in the search box first.');
+    return;
+  }
+  
+  console.log('Testing down navigation...');
+  navigateSuggestions(1);
+  
+  setTimeout(() => {
+    console.log('Testing up navigation...');
+    navigateSuggestions(-1);
+  }, 100);
+};
+
+// Test function to verify scrolling is working correctly
+// Call this in browser console: testScrolling()
+window.testScrolling = function() {
+  console.log('🧪 Testing scrolling...');
+  
+  const feedbackContainer = document.getElementById('feedback-container');
+  if (!feedbackContainer) {
+    console.log('❌ Feedback container not found');
+    return;
+  }
+  
+  const feedbackItems = feedbackContainer.querySelectorAll('.feedback-item');
+  console.log('📋 Current feedback items:', feedbackItems.length);
+  
+  if (feedbackItems.length === 0) {
+    console.log('❌ No feedback items found. Make a guess or skip first.');
+    return;
+  }
+  
+  console.log('🔄 Testing scroll to latest attempt...');
+  scrollToLatestAttempt();
+};
+
+// Show clear feedback when a song is selected via Enter key
+function showSongSelectionFeedback(selectedSong) {
+  const guessInput = document.getElementById('guess-input');
+  if (!guessInput) return;
+  
+  // Temporarily change the input styling to show selection
+  const originalBorder = guessInput.style.borderColor;
+  const originalBoxShadow = guessInput.style.boxShadow;
+  const originalBackground = guessInput.style.backgroundColor;
+  
+  // Apply selection feedback styling
+  guessInput.style.borderColor = '#2cb67d';
+  guessInput.style.boxShadow = '0px 4px 12px rgba(44, 182, 125, 0.4)';
+  guessInput.style.backgroundColor = 'rgba(44, 182, 125, 0.1)';
+  
+  // Show a brief message in the placeholder
+  const originalPlaceholder = guessInput.placeholder;
+  guessInput.placeholder = `✓ Selected: ${selectedSong.title} by ${selectedSong.artist}`;
+  
+  // Reset after the delay
+  setTimeout(() => {
+    guessInput.style.borderColor = originalBorder;
+    guessInput.style.boxShadow = originalBoxShadow;
+    guessInput.style.backgroundColor = originalBackground;
+    guessInput.placeholder = originalPlaceholder;
+  }, 250);
+}
 
 // Initialize everything when DOM is loaded
 init(); 
