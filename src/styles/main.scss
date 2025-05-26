@@ -17,13 +17,30 @@ body {
   font-family: $font-family-primary;
   font-weight: $font-weight-regular;
   height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden; // Prevent horizontal scroll
+  overflow-y: auto; // Always allow vertical scroll for user autonomy
   background: $color-white;
+  margin: 0;
+  padding: 0;
+  
+  // Enable full scrolling when feedback is present
+  &.has-feedback {
+    height: auto !important;
+    min-height: 100vh;
+  }
+  
+  // Ensure no scroll during landing page animation
+  &.landing-active {
+    overflow: hidden !important;
+    height: 100vh !important;
+  }
 }
 
 #app {
   height: 100vh;
   position: relative;
+  overflow-x: hidden; // Prevent horizontal overflow during animations
+  overflow-y: visible; // Allow vertical overflow for scrolling
 }
 
 // Utility classes
@@ -46,18 +63,24 @@ body {
 // Landing Page Styles
 .landing-page {
   height: 100vh;
+  max-height: 100vh; // Prevent overflow
   background: $color-primary;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
   position: relative;
+  overflow: hidden; // Prevent any content overflow
   
   // Initial state (white screen)
   &.initial {
     background: $color-white;
     
-    .landing-content,
+    .landing-content {
+      opacity: 0;
+      transform: translateY(5vh); // Start from below final position
+    }
+    
     .landing-footer {
       opacity: 0;
       transform: translateY(20px);
@@ -68,7 +91,12 @@ body {
   &.transitioning {
     transition: background-color 1s ease-in-out;
     
-    .landing-content,
+    .landing-content {
+      animation: fadeInContent 1s ease-in-out 0.5s forwards;
+      opacity: 0;
+      transform: translateY(5vh); // Start from below
+    }
+    
     .landing-footer {
       animation: fadeIn 1s ease-in-out 0.5s forwards;
       opacity: 0;
@@ -85,7 +113,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 0;
-  transform: translateY(5vh);
+  // Remove the transform here - it will be handled by animation
 }
 
 .game-title {
@@ -152,16 +180,17 @@ body {
 
 // Game Screen Styles (basic structure)
 .game-screen {
-  min-height: 100vh;
+  min-height: 100vh; // Always allow content to extend beyond viewport
   background: #3d708f;
   display: flex;
   flex-direction: column;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow-y: auto; // Allow scrolling when content exceeds viewport
+  position: relative; // Changed from absolute to allow natural document flow
+  width: 100%;
+  
+  // When feedback is visible, ensure proper spacing
+  &.has-feedback {
+    min-height: 100vh;
+  }
 }
 
 .game-header {
@@ -188,6 +217,8 @@ body {
   padding: 0.3rem;
   border-radius: $border-radius-button;
   box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
+  margin: 0 auto;
+  width: fit-content;
   transform: translateY(-0.2rem);
 }
 
@@ -246,9 +277,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem 2rem 1.5rem;
-  min-height: calc(100vh - 6rem);
-  overflow-y: auto; // Allow scrolling when content exceeds viewport
+  padding: 1.5rem 2rem 1rem; // Reduced padding to fit better initially
 }
 
 // Vinyl Player Styles (matching Slides 4-7)
@@ -259,7 +288,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0;
-  transform: translateY(-5vh);
+  transform: translateY(-2vh); // Reduced from -5vh to fit better
 }
 
 .vinyl-disc {
@@ -429,7 +458,7 @@ body {
   width: 100%;
   max-width: 600px;
   margin-top: 0;
-  padding-bottom: 3rem;
+  padding-bottom: 1rem; // Reduced from 3rem to fit better initially
 }
 
 .search-box {
@@ -444,7 +473,7 @@ body {
   border-radius: $border-radius-default;
   font-family: $font-family-primary;
   font-size: 1rem;
-  background: $color-white;
+  background: $color-white !important; // Force white background always
   color: $color-dark-gray;
   box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
   transition: all $transition-fast;
@@ -458,11 +487,19 @@ body {
     outline: 2px solid $color-green;
     outline-offset: 2px;
     box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15), 0px 0px 0px 4px rgba(44, 182, 125, 0.1);
+    background: $color-white !important; // Ensure white background on focus
   }
   
   &:disabled {
-    background: color.adjust($color-white, $lightness: -5%);
+    background: color.adjust($color-white, $lightness: -5%) !important;
     cursor: not-allowed;
+  }
+  
+  // Ensure input remains functional after game state changes
+  &:not(:disabled) {
+    background: $color-white !important;
+    pointer-events: auto !important;
+    cursor: text !important;
   }
 }
 
@@ -641,32 +678,23 @@ body {
 // Enhanced Feedback Display (Phase 5.5 - Persistent & Scrollable)
 .feedback-container {
   width: 100%;
-  max-width: 500px;
+  max-width: 600px; // Match progress bar width
   min-height: 0;
-  max-height: 40vh; // Allow more space for accumulated feedback
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 1rem 0;
-  margin-top: 1rem;
+  padding: 0;
+  margin-top: 0;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   
-  // Custom scrollbar
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-    
-    &:hover {
-      background: rgba(255, 255, 255, 0.5);
-    }
+  // Show state when feedback is present
+  &.visible {
+    opacity: 1;
+    transform: translateY(0);
+    padding: 1.5rem 0 2rem;
+    margin-top: 1.5rem;
   }
   
   // Empty state
@@ -674,40 +702,94 @@ body {
     padding: 0;
     margin-top: 0;
     min-height: 0;
+    opacity: 0;
+    transform: translateY(20px);
   }
 }
 
 .feedback-item {
   background: rgba(255, 255, 255, 0.95);
   color: $color-dark-gray;
-  padding: 1rem 2rem;
+  padding: 1rem 1rem 1rem 1.5rem; // Reduced left padding to move text more left
   border-radius: $border-radius-default;
   font-family: 'Lexend', Arial, sans-serif; // Phase 5.5: Changed to Lexend
   font-size: 1rem;
   font-weight: 400;
-  text-align: center;
+  text-align: left;
   box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
   opacity: 0;
   transform: translateY(20px) scale(0.95);
-  animation: feedbackSlideIn 0.4s ease-out forwards;
+  animation: feedbackSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation-fill-mode: both; // Maintain initial state until animation starts
   width: 100%;
+  position: relative;
   
-  // Different styles for different feedback types
+  // Attempt number badge
+  .attempt-number {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: $color-dark-gray;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  // Color coding based on attempt number
+  &.attempt-1 {
+    background: $color-attempt-1;
+    color: $color-dark-gray;
+  }
+  
+  &.attempt-2 {
+    background: $color-attempt-2;
+    color: $color-dark-gray;
+  }
+  
+  &.attempt-3 {
+    background: $color-attempt-3;
+    color: $color-dark-gray;
+  }
+  
+  &.attempt-4 {
+    background: $color-attempt-4;
+    color: $color-dark-gray;
+  }
+  
+  &.attempt-5 {
+    background: $color-attempt-5;
+    color: $color-white;
+    font-weight: 600;
+    
+    .attempt-number {
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 700;
+    }
+  }
+  
+  // Different styles for different feedback types (legacy support)
   &.incorrect-guess {
-    border-left: 4px solid $color-red;
+    border-left: 4px solid transparent;
   }
   
   &.skipped {
-    border-left: 4px solid #ffa500;
-    color: #666;
+    border-left: 4px solid transparent;
   }
   
   &.correct-guess {
-    border-left: 4px solid $color-green;
-    background: rgba(44, 182, 125, 0.1);
-    color: $color-green;
-    font-weight: 600;
-    animation: feedbackSlideIn 0.4s ease-out forwards, feedbackGlow 0.6s ease-out;
+    border-left: 4px solid transparent;
+    background: #2cb67dff; // Solid green background
+    color: $color-white; // White text
+    font-weight: 700; // Bold text
+    font-family: 'Lexend', Arial, sans-serif; // Lexend font family
+    animation: feedbackSlideIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards, feedbackGlow 0.8s ease-out;
+    animation-fill-mode: both;
+    
+    .attempt-number {
+      color: rgba(255, 255, 255, 0.9); // White attempt number text
+      font-weight: 700; // Bold attempt number
+    }
   }
   
   &.game-over {
@@ -759,10 +841,11 @@ body {
   }
   
   &.correct-guess {
-    border-left: 4px solid $color-green;
-    background: rgba(44, 182, 125, 0.1);
-    color: $color-green;
-    font-weight: 600;
+    border-left: 4px solid transparent;
+    background: #2cb67dff; // Solid green background
+    color: $color-white; // White text
+    font-weight: 700; // Bold text
+    font-family: 'Lexend', Arial, sans-serif; // Lexend font family
     animation: feedbackSlideIn 0.4s ease-out, feedbackGlow 0.6s ease-out;
   }
   
@@ -813,6 +896,17 @@ body {
   }
 }
 
+@keyframes fadeInContent {
+  from {
+    opacity: 0;
+    transform: translateY(5vh); // Start from below
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0); // End at final position (no offset)
+  }
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -833,6 +927,111 @@ body {
 
 .spinning {
   animation: spin 3s linear infinite;
+}
+
+// Error feedback animations
+@keyframes gentleShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-8px);
+  }
+  20% {
+    transform: translateX(8px);
+  }
+  30% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  50% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(4px);
+  }
+  70% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+  90% {
+    transform: translateX(-1px);
+  }
+}
+
+@keyframes strongHorizontalShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-18px);
+  }
+  20% {
+    transform: translateX(18px);
+  }
+  30% {
+    transform: translateX(-15px);
+  }
+  40% {
+    transform: translateX(15px);
+  }
+  50% {
+    transform: translateX(-12px);
+  }
+  60% {
+    transform: translateX(12px);
+  }
+  70% {
+    transform: translateX(-8px);
+  }
+  80% {
+    transform: translateX(8px);
+  }
+  90% {
+    transform: translateX(-4px);
+  }
+  95% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes redBackgroundStatic {
+  0% {
+    background-color: #700c0c; // red background
+  }
+  100% {
+    background-color: #700c0c; // same background (no flashing)
+  }
+}
+
+@keyframes vinylCenterRedFlash {
+  0% {
+    background-color: #b00d19ff; // red vinyl center
+  }
+  100% {
+    background-color: #b00d19ff; // same red background (no flashing)
+  }
+}
+
+// Error feedback animation classes
+.error-shake {
+  animation: gentleShake 0.5s ease-in-out;
+}
+
+.error-horizontal-shake {
+  animation: strongHorizontalShake 0.5s ease-out;
+}
+
+.error-background-static {
+  animation: redBackgroundStatic 0.5s ease-out;
+}
+
+.error-vinyl-center-flash {
+  animation: vinylCenterRedFlash 0.5s ease-out;
 }
 
 // Responsive design
@@ -1012,7 +1211,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #4a90a4 0%, #357a8a 100%);
+  background: $color-victory-background;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1020,7 +1219,7 @@ body {
   
   .game-header {
     width: 100%;
-    padding: 2rem;
+    padding: 1rem; // Reduced padding to save space
     display: flex;
     justify-content: center;
     
@@ -1028,7 +1227,7 @@ body {
       color: $color-white;
       font-family: $font-family-primary;
       font-weight: $font-weight-bold;
-      font-size: 3rem;
+      font-size: 2.5rem; // Slightly smaller for better fit
       text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
       margin: 0;
     }
@@ -1039,17 +1238,19 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    gap: 3rem;
+    justify-content: flex-start; // Changed from center to flex-start
+    padding: 1rem 2rem 1.5rem; // Slightly more top padding
+    gap: 0; // Match loss state gap
+    min-height: 0; // Allow content to fit better
   }
   
   .victory-vinyl {
     .vinyl-disc {
-      width: 300px;
+      width: 300px; // Match game state vinyl size
       height: 300px;
       cursor: pointer;
       transition: transform $transition-default;
+      margin-bottom: 0.5rem; // Match loss state spacing
       
       &:hover {
         transform: scale(1.05);
@@ -1060,20 +1261,14 @@ body {
         animation: vinylSpin 3s linear infinite;
       }
       
-      &::before {
-        width: 100px;
-        height: 100px;
-      }
-      
-      &::after {
-        width: 200px;
-        height: 200px;
-      }
-      
       .vinyl-center {
+        width: 70px; // Match game state center size
+        height: 70px;
+        background: $color-victory-vinyl-center;
+        
         .play-pause-icon {
-          width: 40px;
-          height: 40px;
+          width: 52px; // Match game state icon size
+          height: 52px;
           transition: all $transition-fast;
           filter: brightness(0) invert(1);
         }
@@ -1085,39 +1280,48 @@ body {
     }
   }
   
+  // Song info section - positioned very close to vinyl
+  .victory-song-info {
+    text-align: center;
+    color: $color-white;
+    font-family: $font-family-primary;
+    margin-bottom: 1.5rem; // More space before "Great Job!"
+    margin-top: -0.75rem; // Match loss state positioning - closer to vinyl
+    
+    #victory-song-title {
+      font-size: 1.2rem; // Match loss state font size
+      font-weight: $font-weight-bold;
+      margin-bottom: 0.1rem; // Very tight spacing
+      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    #victory-artist {
+      font-size: 1rem; // Match loss state font size
+      font-weight: $font-weight-regular;
+      margin-bottom: 0;
+      opacity: 0.9;
+      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+  
   .victory-content {
     text-align: center;
     color: $color-white;
     font-family: $font-family-primary;
     max-width: 600px;
     
-    #victory-song-title {
-      font-size: 2rem;
-      font-weight: $font-weight-bold;
-      margin-bottom: 0.5rem;
-      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
-    }
-    
-    #victory-artist {
-      font-size: 1.5rem;
-      font-weight: $font-weight-regular;
-      margin-bottom: 2rem;
-      opacity: 0.9;
-      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
-    }
-    
     .victory-message {
-      font-size: 1.75rem;
+      font-size: 1.5rem; // Smaller for better fit
       font-weight: $font-weight-bold;
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem; // Much reduced spacing
       color: $color-white;
       text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
     }
     
     .victory-time {
-      font-size: 1.25rem;
+      font-size: 1.1rem; // Smaller for better fit
       font-weight: $font-weight-regular;
-      margin-bottom: 3rem;
+      margin-bottom: 1rem; // Much reduced margin
       opacity: 0.9;
       text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
       
@@ -1128,7 +1332,7 @@ body {
     }
     
     .play-again-button {
-      background: $color-green;
+      background: $color-victory-play-again-button;
       color: $color-white;
       border: none;
       border-radius: $border-radius-button;
@@ -1138,12 +1342,12 @@ body {
       font-weight: $font-weight-regular;
       cursor: pointer;
       transition: all $transition-fast;
-      box-shadow: 0px 4px 12px rgba(44, 182, 125, 0.3);
+      box-shadow: 0px 4px 12px rgba(180, 28, 39, 0.3), 0px 2px 6px rgba(0, 0, 0, 0.15); // Added subtle drop shadow
       
       &:hover {
-        background: color.adjust($color-green, $lightness: -10%);
+        background: color.adjust($color-victory-play-again-button, $lightness: -10%);
         transform: translateY(-2px);
-        box-shadow: 0px 6px 16px rgba(44, 182, 125, 0.4);
+        box-shadow: 0px 6px 16px rgba(180, 28, 39, 0.4), 0px 4px 8px rgba(0, 0, 0, 0.2); // Enhanced drop shadow on hover
       }
       
       &:active {
@@ -1169,30 +1373,28 @@ body {
       width: 240px;
       height: 240px;
       
-      &::before {
-        width: 80px;
-        height: 80px;
+      .vinyl-center {
+        width: 60px; // Proportionally smaller for mobile
+        height: 60px;
+        
+        .play-pause-icon {
+          width: 42px; // Proportionally smaller for mobile
+          height: 42px;
+        }
+      }
+    }
+    
+    .victory-song-info {
+      #victory-song-title {
+        font-size: 1.1rem; // Match loss state mobile sizing
       }
       
-      &::after {
-        width: 160px;
-        height: 160px;
-      }
-      
-      .vinyl-center .play-icon {
-        width: 32px;
-        height: 32px;
+      #victory-artist {
+        font-size: 0.9rem; // Match loss state mobile sizing
       }
     }
     
     .victory-content {
-      #victory-song-title {
-        font-size: 1.5rem;
-      }
-      
-      #victory-artist {
-        font-size: 1.25rem;
-      }
       
       .victory-message {
         font-size: 1.5rem;
@@ -1235,7 +1437,8 @@ body {
   border-radius: $border-radius-default;
   box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.2);
   max-height: 240px;
-  overflow-y: auto;
+  overflow-x: hidden; // Prevent horizontal scroll
+  overflow-y: auto; // Only vertical scroll
   border: 1px solid rgba(0, 0, 0, 0.1);
   
   // Custom scrollbar
@@ -1261,7 +1464,8 @@ body {
   padding: 0.75rem 1rem;
   cursor: pointer;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  transition: background-color 0.15s ease;
+  transition: all 0.2s ease; // Smooth transition for all properties
+  overflow: hidden; // Prevent any content overflow
   
   &:last-child {
     border-bottom: none;
@@ -1269,11 +1473,32 @@ body {
   
   &:hover,
   &.highlighted {
-    background: rgba(44, 182, 125, 0.1);
+    background: rgba(44, 182, 125, 0.2);
+    border-left: 4px solid #2cb67d; // Clear visual indicator for keyboard navigation
+    // Removed translateX to prevent horizontal scroll issues
   }
   
   &:active {
     background: rgba(44, 182, 125, 0.2);
+  }
+  
+  // Already guessed songs styling
+  &.already-guessed {
+    background: rgba(180, 28, 39, 0.08); // Slightly more visible red background
+    cursor: not-allowed;
+    opacity: 0.8; // Less faded so it's more visible
+    
+    &:hover,
+    &.highlighted {
+      background: rgba(180, 28, 39, 0.2); // Much more visible when highlighted
+      border-left: 4px solid #b41c27; // Bright red border, thicker and more visible
+      // Removed translateX to prevent horizontal scroll issues
+    }
+    
+    .song-title,
+    .song-artist {
+      color: rgba(67, 67, 67, 0.7); // Less muted text color
+    }
   }
   
   .song-title {
@@ -1287,5 +1512,206 @@ body {
     color: $color-dark-gray;
     font-size: 0.85rem;
     opacity: 0.8;
+  }
+  
+  .already-guessed-indicator {
+    font-size: 0.75rem;
+    color: rgba(180, 28, 39, 0.8);
+    font-style: italic;
+    margin-top: 0.2rem;
+  }
+}
+
+// Loss State Screen
+.loss-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: $color-loss-background;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 900;
+  
+  .game-header {
+    width: 100%;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    
+    .game-title {
+      color: $color-white;
+      font-family: $font-family-primary;
+      font-weight: $font-weight-bold;
+      font-size: 2.5rem;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+      margin: 0;
+    }
+  }
+  
+  .loss-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 1rem 2rem 1.5rem;
+    gap: 0;
+    min-height: 0;
+  }
+  
+  .loss-vinyl {
+    .vinyl-disc {
+      width: 300px; // Match game state vinyl size
+      height: 300px;
+      cursor: pointer;
+      transition: transform $transition-default;
+      margin-bottom: 0.5rem; // Reduced spacing to vinyl
+      
+      &:hover {
+        transform: scale(1.05);
+      }
+      
+      // Consistent idle spin animation for loss screen
+      &.spinning {
+        animation: vinylSpin 3s linear infinite;
+      }
+      
+      .vinyl-center {
+        width: 70px; // Match game state center size
+        height: 70px;
+        
+        &.loss-vinyl-center {
+          background: $color-loss-vinyl-center;
+        }
+        
+        .play-pause-icon {
+          width: 52px; // Match game state icon size
+          height: 52px;
+          transition: all $transition-fast;
+          filter: brightness(0) invert(1);
+        }
+        
+        &:hover .play-pause-icon {
+          transform: scale(1.1);
+        }
+      }
+    }
+  }
+  
+  // Song info section - positioned very close to vinyl
+  .loss-song-info {
+    text-align: center;
+    color: $color-white;
+    font-family: $font-family-primary;
+    margin-bottom: 1.5rem; // Reduced space before "Better luck next time..."
+    margin-top: -0.75rem; // Consistent with victory state - closer to vinyl
+    
+    #loss-song-title {
+      font-size: 1.2rem; // Further reduced for tighter spacing
+      font-weight: $font-weight-bold;
+      margin-bottom: 0.1rem; // Tighter spacing between title and artist
+      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    #loss-artist {
+      font-size: 1rem; // Further reduced for tighter spacing
+      font-weight: $font-weight-regular;
+      margin-bottom: 0;
+      opacity: 0.9;
+      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+  
+  .loss-content {
+    text-align: center;
+    color: $color-white;
+    font-family: $font-family-primary;
+    max-width: 600px;
+    
+    .loss-message {
+      font-size: 1.2rem; // Reduced from 1.5rem
+      font-weight: $font-weight-bold;
+      margin-bottom: 1rem;
+      color: $color-white;
+      text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .play-again-button.loss-play-again {
+      background: $color-play-again-button;
+      color: $color-white;
+      border: none;
+      border-radius: $border-radius-button;
+      padding: 1rem 3rem;
+      font-family: $font-family-primary;
+      font-size: 1.25rem;
+      font-weight: $font-weight-regular;
+      cursor: pointer;
+      transition: all $transition-fast;
+      box-shadow: 0px 4px 12px rgba(56, 118, 29, 0.3), 0px 2px 6px rgba(0, 0, 0, 0.15); // Added subtle drop shadow
+      
+      &:hover {
+        background: color.adjust($color-play-again-button, $lightness: -10%);
+        transform: translateY(-2px);
+        box-shadow: 0px 6px 16px rgba(56, 118, 29, 0.4), 0px 4px 8px rgba(0, 0, 0, 0.2); // Enhanced drop shadow on hover
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
+  }
+}
+
+// Loss Screen Responsive Design
+@media (max-width: $breakpoint-mobile) {
+  .loss-screen {
+    .game-header .game-title {
+      font-size: 2.5rem;
+    }
+    
+    .loss-main {
+      gap: 2rem;
+      padding: 1.5rem;
+    }
+    
+    .loss-vinyl .vinyl-disc {
+      width: 240px;
+      height: 240px;
+      
+      .vinyl-center {
+        width: 60px; // Proportionally smaller for mobile
+        height: 60px;
+        
+        .play-pause-icon {
+          width: 42px; // Proportionally smaller for mobile
+          height: 42px;
+        }
+      }
+    }
+    
+    .loss-song-info {
+      #loss-song-title {
+        font-size: 1.1rem; // Consistent mobile sizing
+      }
+      
+      #loss-artist {
+        font-size: 0.9rem; // Consistent mobile sizing
+      }
+    }
+    
+    .loss-content {
+      
+      .loss-message {
+        font-size: 1.1rem; // Reduced for mobile
+      }
+      
+      .play-again-button.loss-play-again {
+        padding: 0.875rem 2.5rem;
+        font-size: 1.1rem;
+      }
+    }
   }
 } 
