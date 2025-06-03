@@ -16,8 +16,8 @@ const gameState = {
     audioElement: null   // Will be set in Phase 4
   },
   
-  // Snippet length progression: 2s → 3s → 5s → 8s → 12s
-  snippetLengths: [2, 3, 5, 8, 12],
+  // Snippet length progression: 2s → 3s → 5s → 8s → 16s
+  snippetLengths: [2, 3, 5, 8, 16],
   currentSnippetIndex: 0, // Index into snippetLengths array
   
   // Turn management (max 5 turns)
@@ -158,7 +158,7 @@ const audioManager = {
     if (!progressFill) return;
     
     const startTime = this.currentAudio.currentTime;
-    const maxDuration = 12; // Progress bar always represents 12 seconds total
+    const maxDuration = 16; // Progress bar always represents 16 seconds total
     
     // Update progress every 50ms for smooth animation
     this.progressIntervalId = setInterval(() => {
@@ -168,7 +168,7 @@ const audioManager = {
       }
       
       const elapsed = this.currentAudio.currentTime - startTime;
-      // Progress is based on snippet duration relative to the full 12 seconds
+      // Progress is based on snippet duration relative to the full 16 seconds
       const progress = Math.min(elapsed / maxDuration, duration / maxDuration) * 100;
       
       progressFill.style.width = `${progress}%`;
@@ -764,6 +764,9 @@ function processSkip() {
     scrollToLatestAttempt();
   }, 300); // Brief delay to let feedback render
   
+  // Progress snippet length for skips FIRST (before updating UI)
+  progressSnippetLength();
+  
   // Progress to next turn (increment turn counter)
   const canContinue = progressToNextTurn();
   
@@ -778,9 +781,6 @@ function processSkip() {
       }, 250);
     }, 300); // Wait for skip feedback to show
   } else {
-    // Also increment snippet length for skips
-    progressSnippetLength();
-    
     // Automatically play the next, longer snippet after feedback is shown
     setTimeout(() => {
       if (gameState.status === 'playing') {
@@ -807,7 +807,7 @@ function updateGameUI() {
   if (gameState.status === 'playing') {
     if (gameState.currentTurn < gameState.maxTurns - 1 && nextLength !== null) {
       // Can skip and will get longer snippet
-      skipButton.textContent = `Skip (+${nextLength}s)`;
+      skipButton.textContent = `Skip (${nextLength}s)`;
       skipButton.disabled = false;
       skipButton.style.opacity = '1';
     } else if (gameState.currentTurn < gameState.maxTurns - 1) {
