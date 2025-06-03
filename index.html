@@ -8,7 +8,7 @@
     <meta name="author" content="Shafquat Tabeeb">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/assets/icons/music-note.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -77,6 +77,11 @@
                             placeholder="Know it? Search for title/artist…"
                             autocomplete="off"
                         />
+                        <div class="keyboard-hint">
+                            <span class="ctrl-hint">Ctrl</span>
+                            <span class="plus-sign">+</span>
+                            <span class="k-hint">K</span>
+                        </div>
                         <img src="/assets/icons/dropdown.svg" alt="Dropdown" class="dropdown-icon" />
                         <!-- Phase 7.5: Search Suggestions Drop-up -->
                         <div class="search-suggestions" id="search-suggestions">
@@ -191,6 +196,26 @@
                     </button>
                 </div>
             </main>
+        </div>
+
+        <!-- Modal Search Experience -->
+        <div id="search-modal" class="search-modal hidden">
+            <div class="search-modal-content">
+                <div class="modal-search-box">
+                    <input 
+                        type="text" 
+                        id="modal-search-input" 
+                        placeholder="Know it? Search for title/artist…"
+                        autocomplete="off"
+                    />
+                    <!-- Modal search suggestions -->
+                    <div class="modal-search-suggestions" id="modal-search-suggestions">
+                        <div class="modal-suggestions-list" id="modal-suggestions-list">
+                            <!-- Suggestions will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
