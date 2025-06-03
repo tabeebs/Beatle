@@ -464,11 +464,40 @@ body {
 .search-box {
   position: relative;
   width: 100%;
+  transition: all $transition-fast; // Add transition for smooth movement
+  
+  // Add hover effect for enhanced search experience
+  &:hover {
+    transform: translateY(-2px); // Move the entire search box up more
+    
+    #guess-input {
+      box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .keyboard-hint {
+      // Remove individual transform - let it move with the parent
+      opacity: 1;
+      
+      .ctrl-hint,
+      .k-hint {
+        background: color.adjust($color-dark-gray, $lightness: 15%); // Lighter grey instead of very dark
+        color: $color-white;
+        box-shadow: 0px 2px 8px rgba(67, 67, 67, 0.3); // Softer shadow
+        transform: scale(1.05); // Less prominent scale
+        border-color: color.adjust($color-dark-gray, $lightness: 10%);
+      }
+      
+      .plus-sign {
+        color: $color-dark-gray; // Keep plus sign consistent
+        font-weight: $font-weight-bold;
+      }
+    }
+  }
 }
 
 #guess-input {
   width: 100%;
-  padding: 0.875rem 3rem 0.875rem 1.5rem;
+  padding: 0.875rem 8rem 0.875rem 1.5rem; // Increased right padding for keyboard hint
   border: none;
   border-radius: $border-radius-default;
   font-family: $font-family-primary;
@@ -484,23 +513,65 @@ body {
   
   &:focus,
   &.focused {
-    outline: 2px solid $color-green;
-    outline-offset: 2px;
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15), 0px 0px 0px 4px rgba(44, 182, 125, 0.1);
-    background: $color-white !important; // Ensure white background on focus
+    outline: 2px solid rgba(44, 182, 125, 0.5); // Green outline (doesn't affect size)
+    outline-offset: 2px; // Space between element and outline
+    background: $color-white !important; // Keep white background
+    box-shadow: 0px 4px 16px rgba(44, 182, 125, 0.3); // Green-tinted shadow
+  }
+}
+
+// Updated keyboard hint styling for two separate buttons
+.keyboard-hint {
+  position: absolute;
+  right: 3rem;
+  top: 50%;
+  transform: translateY(-50%); // Base position - will move with parent on hover
+  opacity: 0.7; // Slightly more visible by default
+  transition: all $transition-fast; // Smooth transition for hover effects
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ctrl-hint,
+.k-hint {
+  font-family: 'Lexend', $font-family-primary;
+  font-size: 0.75rem;
+  font-weight: $font-weight-medium;
+  color: $color-dark-gray;
+  background: color.adjust($color-white, $lightness: -8%);
+  border: 1px solid color.adjust($color-light-gray, $lightness: 20%);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  display: inline-block;
+  line-height: 1;
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all $transition-fast; // Smooth transition for hover effects
+  cursor: pointer; // Make them clickable
+  user-select: none; // Prevent text selection
+  
+  // Pressed state (when clicked individually)
+  &.pressed {
+    background: color.adjust($color-dark-gray, $lightness: 15%); // Same grey as hover
+    color: $color-white;
+    box-shadow: 0px 1px 2px rgba(67, 67, 67, 0.3);
+    transform: scale(0.98) translateY(1px); // Perk down animation (smaller + move down)
+    border-color: color.adjust($color-dark-gray, $lightness: 10%);
   }
   
-  &:disabled {
-    background: color.adjust($color-white, $lightness: -5%) !important;
-    cursor: not-allowed;
+  // Active state for immediate feedback
+  &:active {
+    transform: scale(0.95) translateY(2px); // More pronounced perk down on click
   }
-  
-  // Ensure input remains functional after game state changes
-  &:not(:disabled) {
-    background: $color-white !important;
-    pointer-events: auto !important;
-    cursor: text !important;
-  }
+}
+
+.plus-sign {
+  font-family: 'Lexend', $font-family-primary;
+  font-size: 0.7rem;
+  color: $color-light-gray;
+  font-weight: $font-weight-regular;
+  transition: all $transition-fast;
 }
 
 .dropdown-icon {
@@ -512,6 +583,7 @@ body {
   height: 20px;
   opacity: 0.5;
   pointer-events: none;
+  transition: all $transition-fast; // Add smooth transition for animations
 }
 
 .action-buttons {
@@ -1713,5 +1785,160 @@ body {
         font-size: 1.1rem;
       }
     }
+  }
+}
+
+// =====================================
+// MODAL SEARCH EXPERIENCE
+// =====================================
+
+// Modal search overlay
+.search-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 2000;
+  padding-top: 15vh; // Position search near top like VS Code/Spotify
+  
+  // Animation for modal appearance
+  &:not(.hidden) {
+    animation: modalFadeIn 0.2s ease-out;
+  }
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.search-modal-content {
+  width: 90%;
+  max-width: 600px;
+  position: relative;
+  
+  // Animation for content appearance
+  animation: modalContentSlideIn 0.2s ease-out;
+}
+
+@keyframes modalContentSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Modal search box
+.modal-search-box {
+  position: relative;
+  width: 100%;
+}
+
+#modal-search-input {
+  width: 100%;
+  padding: 1.25rem 2rem;
+  border: none;
+  border-radius: 12px;
+  font-family: $font-family-primary;
+  font-size: 1.25rem;
+  background: $color-white;
+  color: $color-dark-gray;
+  box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.25);
+  transition: all $transition-fast;
+  outline: none;
+  
+  &::placeholder {
+    color: $color-light-gray;
+    font-size: 1.1rem;
+  }
+  
+  &:focus {
+    box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.25), 0px 0px 0px 4px rgba(44, 182, 125, 0.2);
+  }
+}
+
+// Modal search suggestions
+.modal-search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: $color-white;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.25);
+  z-index: 2001;
+  
+  &.hidden {
+    display: none;
+  }
+}
+
+.modal-suggestions-list {
+  padding: 0.5rem 0;
+}
+
+// Modal suggestion items (reuse and enhance existing suggestion styles)
+.modal-search-suggestions .suggestion-item {
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  transition: background-color $transition-fast;
+  border-radius: 0;
+  font-size: 1rem;
+  
+  &:hover,
+  &.highlighted {
+    background: color.adjust($color-green, $lightness: 45%);
+  }
+  
+  &.already-guessed {
+    opacity: 0.6;
+    pointer-events: none;
+    background: color.adjust($color-light-gray, $lightness: 20%);
+    
+    &:hover {
+      background: color.adjust($color-light-gray, $lightness: 20%);
+    }
+  }
+  
+  .song-title {
+    font-family: 'Lexend', $font-family-primary;
+    font-weight: $font-weight-bold;
+    color: $color-black;
+    font-size: 0.95rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .song-artist {
+    font-family: 'Lexend', $font-family-primary;
+    font-size: 0.85rem;
+    color: $color-dark-gray;
+    opacity: 0.8;
+  }
+  
+  .already-guessed-label {
+    font-family: 'Lexend', $font-family-primary;
+    font-size: 0.75rem;
+    color: $color-red;
+    font-style: italic;
+    margin-left: 0.5rem;
   }
 } 

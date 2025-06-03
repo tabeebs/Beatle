@@ -1534,6 +1534,13 @@ function initEventListeners() {
   document.addEventListener('keydown', handleVictorySpacebarPress);
   document.addEventListener('keydown', handleLossSpacebarPress);
   
+  // Enhanced Ctrl+K handler for modal search
+  document.addEventListener('keydown', handleCtrlKPress);
+  
+  // Individual key press handlers for button visual feedback  
+  document.addEventListener('keydown', handleIndividualKeyPress);
+  document.addEventListener('keyup', handleIndividualKeyRelease);
+  
   // Enhanced popup overlay click handlers (Phase 6)
   const howToPlayPopup = document.getElementById('how-to-play-popup');
   if (howToPlayPopup) {
@@ -1544,6 +1551,15 @@ function initEventListeners() {
   if (resetPopup) {
     resetPopup.addEventListener('click', handlePopupOverlayClickEnhanced);
   }
+  
+  // Modal search overlay click handler
+  const searchModal = document.getElementById('search-modal');
+  if (searchModal) {
+    searchModal.addEventListener('click', handleModalOverlayClick);
+  }
+  
+  // Individual Ctrl and K button click handlers
+  initializeKeyboardShortcutButtons();
 }
 
 // Initialize the application
@@ -1558,6 +1574,9 @@ async function init() {
   
   // Phase 5: Initialize enhanced search box functionality
   initializeSearchBox();
+  
+  // Initialize modal search functionality
+  initializeModalSearchInput();
   
   // Phase 7: Load song database
   await loadSongDatabase();
@@ -1583,6 +1602,22 @@ const searchState = {
   lastQuery: '',
   originalPlaceholder: 'Know it? Search for title/artist…',
   lastNavigationTime: 0 // Add timestamp to prevent rapid navigation calls
+};
+
+// Modal search state
+const modalSearchState = {
+  isVisible: false,
+  currentHighlight: -1,
+  filteredSongs: [],
+  lastQuery: '',
+  isActive: false
+};
+
+// Keyboard shortcut state for individual button tracking
+const keyboardShortcutState = {
+  ctrlPressed: false,
+  kPressed: false,
+  pressedButtons: new Set() // Track which buttons are currently pressed
 };
 
 // Enhanced search box functionality with live suggestions
@@ -1837,13 +1872,8 @@ function showSearchSuggestions() {
     searchSuggestions.classList.add('visible');
     searchState.isVisible = true;
     
-    // Reset highlight when showing suggestions and highlight first song
+    // Always start with no highlight - let user navigate with arrow keys
     searchState.currentHighlight = -1;
-    
-    // Auto-highlight the first song for better UX
-    if (searchState.filteredSongs.length > 0) {
-      searchState.currentHighlight = 0;
-    }
     
     updateHighlight();
   }
@@ -1864,17 +1894,8 @@ function hideSearchSuggestions() {
 function navigateSuggestions(direction) {
   if (!searchState.isVisible || searchState.filteredSongs.length === 0) return;
   
-  // Add a timestamp to detect if this is being called multiple times rapidly
-  const timestamp = Date.now();
-  
-  // Prevent rapid successive calls (debounce with 50ms threshold)
-  if (timestamp - searchState.lastNavigationTime < 50) {
-    console.log('🚫 Navigation call ignored - too rapid (within 50ms)');
-    return;
-  }
-  searchState.lastNavigationTime = timestamp;
-  
-  console.log('🔍 Navigation called at', timestamp, ':', {
+  // Simplified navigation without debouncing (which might cause issues)
+  console.log('🔍 Navigation called:', {
     direction: direction,
     currentHighlight: searchState.currentHighlight,
     totalSongs: searchState.filteredSongs.length,
@@ -1883,34 +1904,28 @@ function navigateSuggestions(direction) {
   
   // If no song is currently highlighted, start with first or last song
   if (searchState.currentHighlight === -1) {
-    if (direction > 0) {
-      // Going down - start with first song
+    if (direction === 1) { // Down - start with first song
       searchState.currentHighlight = 0;
-    } else {
-      // Going up - start with last song
+    } else { // Up - start with last song
       searchState.currentHighlight = searchState.filteredSongs.length - 1;
     }
-    updateHighlight();
-    console.log('🎯 Started navigation at index:', searchState.currentHighlight, 'Song:', searchState.filteredSongs[searchState.currentHighlight]?.title);
-    return;
+  } else {
+    // Move to next/previous song sequentially
+    let newIndex = searchState.currentHighlight + direction;
+    
+    // Handle wrapping
+    if (newIndex < 0) {
+      newIndex = searchState.filteredSongs.length - 1; // Wrap to last song
+    } else if (newIndex >= searchState.filteredSongs.length) {
+      newIndex = 0; // Wrap to first song
+    }
+    
+    searchState.currentHighlight = newIndex;
   }
   
-  // Move to next/previous song sequentially
-  let newIndex = searchState.currentHighlight + direction;
-  
-  // Handle wrapping
-  if (newIndex < 0) {
-    newIndex = searchState.filteredSongs.length - 1; // Wrap to last song
-  } else if (newIndex >= searchState.filteredSongs.length) {
-    newIndex = 0; // Wrap to first song
-  }
-  
-  const oldIndex = searchState.currentHighlight;
-  searchState.currentHighlight = newIndex;
   updateHighlight();
-  console.log('🎯 Navigated from index:', oldIndex, 'to index:', searchState.currentHighlight, 
-    'Song:', searchState.filteredSongs[searchState.currentHighlight]?.title,
-    'Already guessed:', searchState.filteredSongs[searchState.currentHighlight]?.isAlreadyGuessed);
+  console.log('🎯 Navigated to index:', searchState.currentHighlight, 
+    'Song:', searchState.filteredSongs[searchState.currentHighlight]?.title);
 }
 
 // Highlight a specific suggestion
@@ -2541,19 +2556,47 @@ async function handleLossPlayAgain() {
 // Enhanced Escape key handler for all popups
 function handleEscapeKeyEnhanced(event) {
   if (event.key === 'Escape') {
-    const howToPlayPopup = document.getElementById('how-to-play-popup');
-    const resetPopup = document.getElementById('reset-popup');
+    console.log('Enhanced Escape key pressed');
     
-    if (!howToPlayPopup.classList.contains('hidden')) {
-      // Check if popup was opened from gear button or initial play
-      if (howToPlayPopup.dataset.openedFromGear === 'true') {
-        hideHowToPlayPopupOnly();
-      } else {
-        hideHowToPlayPopup();
-      }
-    } else if (!resetPopup.classList.contains('hidden')) {
-      hideResetConfirmationPopup();
+    // Priority 1: Close modal search if active
+    if (modalSearchState.isActive) {
+      event.preventDefault();
+      hideModalSearch();
+      console.log('Modal search closed via Escape');
+      return;
     }
+    
+    // Priority 2: Close how-to-play popup if visible
+    const howToPlayPopup = document.getElementById('how-to-play-popup');
+    if (howToPlayPopup && !howToPlayPopup.classList.contains('hidden')) {
+      event.preventDefault();
+      hideHowToPlayPopupOnly();
+      console.log('How-to-play popup closed via Escape');
+      return;
+    }
+    
+    // Priority 3: Close reset confirmation popup if visible
+    const resetPopup = document.getElementById('reset-popup');
+    if (resetPopup && !resetPopup.classList.contains('hidden')) {
+      event.preventDefault();
+      hideResetConfirmationPopup();
+      console.log('Reset confirmation popup closed via Escape');
+      return;
+    }
+    
+    // Priority 4: Hide search suggestions if they're visible
+    if (searchState.isVisible) {
+      event.preventDefault();
+      hideSearchSuggestions();
+      const guessInput = document.getElementById('guess-input');
+      if (guessInput) {
+        guessInput.blur();
+      }
+      console.log('Search suggestions hidden via Escape');
+      return;
+    }
+    
+    console.log('Escape key handled, but no action taken');
   }
 }
 
@@ -2576,92 +2619,304 @@ function handlePopupOverlayClickEnhanced(event) {
   }
 }
 
+// Enhanced Ctrl+K handler for modal search
+function handleCtrlKPress(event) {
+  if (event.key === 'k' && event.ctrlKey) {
+    event.preventDefault();
+    showModalSearch();
+  }
+}
+
+// Modal search overlay click handler
+function handleModalOverlayClick(event) {
+  if (event.target === document.getElementById('search-modal')) {
+    hideModalSearch();
+  }
+}
+
 // =====================================
-// TEST FUNCTION FOR PLAY/PAUSE ANIMATION
+// MODAL SEARCH FUNCTIONALITY
 // =====================================
 
-// Test function to demonstrate play/pause animation
-// Call this in browser console: testPlayPauseAnimation()
-window.testPlayPauseAnimation = function() {
-  const vinylCenter = document.querySelector('.vinyl-center');
-  const playIcon = document.querySelector('.play-icon');
+// Show modal search
+function showModalSearch() {
+  const modal = document.getElementById('search-modal');
+  const modalInput = document.getElementById('modal-search-input');
   
-  if (!vinylCenter || !playIcon) {
-    console.log('Vinyl elements not found. Make sure you are on the game screen.');
-    return;
+  if (!modal || !modalInput) return;
+  
+  // Only show modal during gameplay
+  if (gameState.status !== 'playing') return;
+  
+  modal.classList.remove('hidden');
+  modalSearchState.isActive = true;
+  
+  // Focus the input and copy current value if any
+  const currentInput = document.getElementById('guess-input');
+  if (currentInput && currentInput.value.trim()) {
+    modalInput.value = currentInput.value;
+    handleModalSearchInput(currentInput.value);
+  } else {
+    modalInput.value = '';
+    hideModalSearchSuggestions();
   }
   
-  console.log('Testing play/pause animation...');
+  // Focus and select all text for easy replacement
+  modalInput.focus();
+  modalInput.select();
   
-  // Add playing classes
-  vinylCenter.classList.add('playing');
-  playIcon.classList.add('playing');
-  
-  console.log('Animation should now show "playing" state (rotated, scaled)');
-  
-  // Remove playing classes after 3 seconds
-  setTimeout(() => {
-    vinylCenter.classList.remove('playing');
-    playIcon.classList.remove('playing');
-    console.log('Animation returned to "paused" state');
-  }, 3000);
-};
+  console.log('Modal search opened');
+}
 
-// Test function to demonstrate error animation
-// Call this in browser console: testErrorAnimation()
-window.testErrorAnimation = function() {
-  console.log('🧪 Testing error animation...');
-  triggerErrorAnimation();
-  console.log('You should see a red flash and screen shake animation!');
-};
+// Hide modal search
+function hideModalSearch() {
+  const modal = document.getElementById('search-modal');
+  const modalInput = document.getElementById('modal-search-input');
+  
+  if (!modal) return;
+  
+  modal.classList.add('hidden');
+  modalSearchState.isActive = false;
+  modalSearchState.isVisible = false;
+  modalSearchState.currentHighlight = -1;
+  modalSearchState.filteredSongs = [];
+  modalSearchState.lastQuery = '';
+  
+  if (modalInput) {
+    modalInput.value = '';
+  }
+  
+  hideModalSearchSuggestions();
+  
+  // Reset button states when modal is closed
+  resetAllButtons();
+  
+  console.log('Modal search closed');
+}
 
-// Test function to verify navigation is working correctly
-// Call this in browser console: testNavigation()
-window.testNavigation = function() {
-  console.log('🧪 Testing navigation...');
-  console.log('Current search state:', {
-    isVisible: searchState.isVisible,
-    currentHighlight: searchState.currentHighlight,
-    filteredSongs: searchState.filteredSongs.length,
-    songTitles: searchState.filteredSongs.map(s => s.title)
+// Initialize modal search input
+function initializeModalSearchInput() {
+  const modalInput = document.getElementById('modal-search-input');
+  
+  if (!modalInput) return;
+  
+  // Input handling
+  modalInput.addEventListener('input', (event) => {
+    handleModalSearchInput(event.target.value);
   });
   
-  if (!searchState.isVisible) {
-    console.log('❌ Search suggestions not visible. Type something in the search box first.');
-    return;
-  }
+  // Keyboard navigation
+  modalInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      hideModalSearch();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      
+      if (modalSearchState.isVisible && modalSearchState.filteredSongs.length > 0) {
+        if (modalSearchState.currentHighlight >= 0) {
+          selectModalSuggestion(modalSearchState.currentHighlight);
+        } else {
+          // Auto-select first available song
+          const firstAvailableIndex = modalSearchState.filteredSongs.findIndex(song => !song.isAlreadyGuessed);
+          if (firstAvailableIndex >= 0) {
+            selectModalSuggestion(firstAvailableIndex);
+          }
+        }
+      } else {
+        // Try direct submission
+        const value = modalInput.value.trim();
+        if (value) {
+          const exactMatch = findExactSongMatch(value);
+          if (exactMatch) {
+            selectModalSong(exactMatch);
+          } else {
+            const isAlreadyGuessed = checkIfSongAlreadyGuessed(value);
+            showSearchValidationMessage(isAlreadyGuessed);
+          }
+        }
+      }
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (modalSearchState.isVisible) {
+        navigateModalSuggestions(1);
+      }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (modalSearchState.isVisible) {
+        navigateModalSuggestions(-1);
+      }
+    }
+  });
   
-  console.log('Testing down navigation...');
-  navigateSuggestions(1);
-  
-  setTimeout(() => {
-    console.log('Testing up navigation...');
-    navigateSuggestions(-1);
-  }, 100);
-};
+  console.log('Modal search input initialized');
+}
 
-// Test function to verify scrolling is working correctly
-// Call this in browser console: testScrolling()
-window.testScrolling = function() {
-  console.log('🧪 Testing scrolling...');
+// Handle modal search input
+function handleModalSearchInput(query) {
+  const trimmedQuery = query.trim();
   
-  const feedbackContainer = document.getElementById('feedback-container');
-  if (!feedbackContainer) {
-    console.log('❌ Feedback container not found');
+  if (trimmedQuery.length === 0) {
+    hideModalSearchSuggestions();
     return;
   }
   
-  const feedbackItems = feedbackContainer.querySelectorAll('.feedback-item');
-  console.log('📋 Current feedback items:', feedbackItems.length);
-  
-  if (feedbackItems.length === 0) {
-    console.log('❌ No feedback items found. Make a guess or skip first.');
-    return;
+  if (trimmedQuery === modalSearchState.lastQuery) {
+    return; // No change
   }
   
-  console.log('🔄 Testing scroll to latest attempt...');
-  scrollToLatestAttempt();
-};
+  modalSearchState.lastQuery = trimmedQuery;
+  modalSearchState.filteredSongs = filterSongs(trimmedQuery);
+  modalSearchState.currentHighlight = -1;
+  
+  if (modalSearchState.filteredSongs.length > 0) {
+    renderModalSuggestions();
+    showModalSearchSuggestions();
+  } else {
+    hideModalSearchSuggestions();
+  }
+}
+
+// Render modal suggestions
+function renderModalSuggestions() {
+  const suggestionsList = document.getElementById('modal-suggestions-list');
+  if (!suggestionsList) return;
+  
+  suggestionsList.innerHTML = '';
+  
+  modalSearchState.filteredSongs.forEach((song, index) => {
+    const suggestionItem = document.createElement('div');
+    suggestionItem.className = 'suggestion-item';
+    suggestionItem.dataset.index = index;
+    
+    if (song.isAlreadyGuessed) {
+      suggestionItem.classList.add('already-guessed');
+    }
+    
+    suggestionItem.innerHTML = `
+      <div class="song-title">${escapeHtml(song.title)}</div>
+      <div class="song-artist">${escapeHtml(song.artist)}${song.isAlreadyGuessed ? '<span class="already-guessed-label"> - Already guessed</span>' : ''}</div>
+    `;
+    
+    // Click handler
+    suggestionItem.addEventListener('click', () => {
+      if (!song.isAlreadyGuessed) {
+        selectModalSuggestion(index);
+      }
+    });
+    
+    // Mouse hover handler
+    suggestionItem.addEventListener('mouseenter', () => {
+      modalSearchState.currentHighlight = index;
+      updateModalHighlight();
+    });
+    
+    suggestionsList.appendChild(suggestionItem);
+  });
+}
+
+// Show modal search suggestions
+function showModalSearchSuggestions() {
+  const suggestions = document.getElementById('modal-search-suggestions');
+  if (suggestions) {
+    suggestions.classList.remove('hidden');
+    modalSearchState.isVisible = true;
+  }
+}
+
+// Hide modal search suggestions
+function hideModalSearchSuggestions() {
+  const suggestions = document.getElementById('modal-search-suggestions');
+  if (suggestions) {
+    suggestions.classList.add('hidden');
+    modalSearchState.isVisible = false;
+  }
+}
+
+// Navigate modal suggestions
+function navigateModalSuggestions(direction) {
+  if (!modalSearchState.filteredSongs.length) return;
+  
+  console.log('🔍 Modal navigation called:', {
+    direction: direction,
+    currentHighlight: modalSearchState.currentHighlight,
+    totalSongs: modalSearchState.filteredSongs.length
+  });
+  
+  // If no song is currently highlighted, start with first or last song
+  if (modalSearchState.currentHighlight === -1) {
+    if (direction === 1) { // Down - start with first song
+      modalSearchState.currentHighlight = 0;
+    } else { // Up - start with last song
+      modalSearchState.currentHighlight = modalSearchState.filteredSongs.length - 1;
+    }
+  } else {
+    // Move to next/previous song sequentially
+    let newIndex = modalSearchState.currentHighlight + direction;
+    
+    // Handle wrapping
+    if (newIndex < 0) {
+      newIndex = modalSearchState.filteredSongs.length - 1; // Wrap to last song
+    } else if (newIndex >= modalSearchState.filteredSongs.length) {
+      newIndex = 0; // Wrap to first song
+    }
+    
+    modalSearchState.currentHighlight = newIndex;
+  }
+  
+  updateModalHighlight();
+  console.log('🎯 Modal navigated to index:', modalSearchState.currentHighlight, 
+    'Song:', modalSearchState.filteredSongs[modalSearchState.currentHighlight]?.title);
+}
+
+// Update modal highlight
+function updateModalHighlight() {
+  const suggestionItems = document.querySelectorAll('#modal-suggestions-list .suggestion-item');
+  
+  suggestionItems.forEach((item, index) => {
+    if (index === modalSearchState.currentHighlight) {
+      item.classList.add('highlighted');
+    } else {
+      item.classList.remove('highlighted');
+    }
+  });
+}
+
+// Select modal suggestion
+function selectModalSuggestion(index) {
+  const song = modalSearchState.filteredSongs[index];
+  if (!song || song.isAlreadyGuessed) return;
+  
+  selectModalSong(song);
+}
+
+// Select modal song and close modal
+function selectModalSong(song) {
+  // Copy selection to main input
+  const mainInput = document.getElementById('guess-input');
+  if (mainInput) {
+    mainInput.value = song.title;
+  }
+  
+  // Show feedback
+  showSongSelectionFeedback(song);
+  
+  // Close modal
+  hideModalSearch();
+  
+  // Focus main input
+  if (mainInput) {
+    mainInput.focus();
+  }
+  
+  // Auto-submit after selection
+  setTimeout(() => {
+    handleSubmitClick();
+  }, 300);
+}
+
+// Initialize everything when DOM is loaded
+init(); 
 
 // Show clear feedback when a song is selected via Enter key
 function showSongSelectionFeedback(selectedSong) {
@@ -2689,6 +2944,148 @@ function showSongSelectionFeedback(selectedSong) {
     guessInput.style.backgroundColor = originalBackground;
     guessInput.placeholder = originalPlaceholder;
   }, 250);
+} 
+
+// =====================================
+// KEYBOARD SHORTCUT BUTTON INTERACTIONS
+// =====================================
+
+// Initialize click handlers for individual Ctrl and K buttons
+function initializeKeyboardShortcutButtons() {
+  const ctrlButton = document.querySelector('.ctrl-hint');
+  const kButton = document.querySelector('.k-hint');
+  
+  if (!ctrlButton || !kButton) return;
+  
+  // Ctrl button click handler
+  ctrlButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    handleIndividualButtonClick('ctrl', ctrlButton);
+  });
+  
+  // K button click handler  
+  kButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    handleIndividualButtonClick('k', kButton);
+  });
+  
+  console.log('Keyboard shortcut buttons initialized');
+}
+
+// Handle individual button clicks
+function handleIndividualButtonClick(buttonType, buttonElement) {
+  const isCurrentlyPressed = keyboardShortcutState.pressedButtons.has(buttonType);
+  
+  if (isCurrentlyPressed) {
+    // Button is already pressed, unpress it
+    unpressButton(buttonType, buttonElement);
+  } else {
+    // Button is not pressed, press it
+    pressButton(buttonType, buttonElement);
+  }
+  
+  // Check if both buttons are now pressed
+  if (keyboardShortcutState.pressedButtons.has('ctrl') && keyboardShortcutState.pressedButtons.has('k')) {
+    // Both buttons pressed - trigger modal search after a short delay
+    setTimeout(() => {
+      showModalSearch();
+      // Reset both buttons after opening modal
+      resetAllButtons();
+    }, 200);
+  }
+  
+  console.log('Button click:', buttonType, 'Pressed buttons:', Array.from(keyboardShortcutState.pressedButtons));
+}
+
+// Press a button (add pressed state)
+function pressButton(buttonType, buttonElement) {
+  keyboardShortcutState.pressedButtons.add(buttonType);
+  buttonElement.classList.add('pressed');
+  
+  // Update individual tracking
+  if (buttonType === 'ctrl') {
+    keyboardShortcutState.ctrlPressed = true;
+  } else if (buttonType === 'k') {
+    keyboardShortcutState.kPressed = true;
+  }
+}
+
+// Unpress a button (remove pressed state)
+function unpressButton(buttonType, buttonElement) {
+  keyboardShortcutState.pressedButtons.delete(buttonType);
+  buttonElement.classList.remove('pressed');
+  
+  // Update individual tracking
+  if (buttonType === 'ctrl') {
+    keyboardShortcutState.ctrlPressed = false;
+  } else if (buttonType === 'k') {
+    keyboardShortcutState.kPressed = false;
+  }
+}
+
+// Reset all buttons to unpressed state
+function resetAllButtons() {
+  const ctrlButton = document.querySelector('.ctrl-hint');
+  const kButton = document.querySelector('.k-hint');
+  
+  if (ctrlButton) {
+    ctrlButton.classList.remove('pressed');
+  }
+  
+  if (kButton) {
+    kButton.classList.remove('pressed');
+  }
+  
+  // Clear state
+  keyboardShortcutState.ctrlPressed = false;
+  keyboardShortcutState.kPressed = false;
+  keyboardShortcutState.pressedButtons.clear();
+}
+
+// Handle individual key press detection for visual feedback
+function handleIndividualKeyPress(event) {
+  const ctrlButton = document.querySelector('.ctrl-hint');
+  const kButton = document.querySelector('.k-hint');
+  
+  // Handle Ctrl key press
+  if (event.key === 'Control' && !keyboardShortcutState.ctrlPressed) {
+    keyboardShortcutState.ctrlPressed = true;
+    if (ctrlButton && !ctrlButton.classList.contains('pressed')) {
+      ctrlButton.classList.add('pressed');
+    }
+  }
+  
+  // Handle K key press
+  if (event.key.toLowerCase() === 'k' && !keyboardShortcutState.kPressed) {
+    keyboardShortcutState.kPressed = true;
+    if (kButton && !kButton.classList.contains('pressed')) {
+      kButton.classList.add('pressed');
+    }
+  }
+}
+
+// Handle individual key release detection
+function handleIndividualKeyRelease(event) {
+  const ctrlButton = document.querySelector('.ctrl-hint');
+  const kButton = document.querySelector('.k-hint');
+  
+  // Handle Ctrl key release
+  if (event.key === 'Control') {
+    keyboardShortcutState.ctrlPressed = false;
+    if (ctrlButton) {
+      ctrlButton.classList.remove('pressed');
+    }
+  }
+  
+  // Handle K key release
+  if (event.key.toLowerCase() === 'k') {
+    keyboardShortcutState.kPressed = false;
+    if (kButton) {
+      kButton.classList.remove('pressed');
+    }
+  }
 }
 
 // Initialize everything when DOM is loaded
