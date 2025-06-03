@@ -468,7 +468,7 @@ body {
   
   // Add hover effect for enhanced search experience
   &:hover {
-    transform: translateY(-2px); // Move the entire search box up more
+    transform: translateY(-1.2px); // Move the entire search box up slightly more than skip button
     
     #guess-input {
       box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.2);
@@ -608,11 +608,19 @@ body {
     transform: translateY(-1px);
   }
   
+  &:active {
+    transform: translateY(0);
+  }
+  
   &:disabled {
     cursor: not-allowed;
     transform: none !important;
     
     &:hover {
+      transform: none !important;
+    }
+    
+    &:active {
       transform: none !important;
     }
   }
