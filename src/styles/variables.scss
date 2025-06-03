@@ -8,6 +8,12 @@ $color-blue: #58a2bfff;        // Blue (vinyl center)
 $color-green: #2cb67dff;       // Green (progress bar fill, submit button)
 $color-charcoal: #323136ff;    // Charcoal (cancel button)
 
+// Progress Bar Blue Color Scheme
+$color-blue-primary: #5B9BD5;   // Primary blue for progress elements
+$color-blue-darker: #4A90C2;    // Darker blue for hover/active states
+$color-blue-lighter: #7BB3E0;   // Lighter blue for subtle accents
+$color-blue-shadow: rgba(91, 155, 213, 0.4); // Blue shadow for depth
+
 // Loss State Colors
 $color-loss-background: #700c0cff;  // Loss state background
 $color-loss-vinyl-center: #b00d19ff; // Loss state vinyl center

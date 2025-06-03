@@ -207,6 +207,21 @@ const audioManager = {
       gameState.isPlaying = false;
       this.clearTimers();
       
+      // Update vinyl visual state when stopping
+      const vinylDisc = document.getElementById('vinyl-disc');
+      const vinylCenter = vinylDisc?.querySelector('.vinyl-center');
+      const playPauseIcon = vinylCenter?.querySelector('.play-pause-icon');
+      
+      if (vinylDisc) {
+        vinylDisc.classList.remove('spinning');
+      }
+      if (vinylCenter) {
+        vinylCenter.classList.remove('playing');
+      }
+      if (playPauseIcon) {
+        playPauseIcon.classList.remove('playing');
+      }
+      
       // Reset progress bar if not in victory mode
       if (!this.isVictoryMode) {
         const progressFill = document.getElementById('progress-fill');
@@ -215,7 +230,7 @@ const audioManager = {
         }
       }
       
-      console.log('Audio playback stopped');
+      console.log('Audio playback stopped and vinyl visual state updated');
     }
   },
   
@@ -554,6 +569,12 @@ function progressSnippetLength() {
   if (gameState.currentSnippetIndex < gameState.snippetLengths.length - 1) {
     gameState.currentSnippetIndex++;
     console.log(`Snippet length increased to: ${getCurrentSnippetLength()}s`);
+    
+    // Animate marker transition when snippet changes
+    if (progressMarkers && progressMarkers.animateMarkerTransition) {
+      progressMarkers.animateMarkerTransition();
+    }
+    
     return true;
   }
   
@@ -843,6 +864,11 @@ function updateGameUI() {
   // Update submit button state (this also calls updateSubmitButtonState)
   updateSubmitButtonState();
   
+  // Update progress markers state
+  if (progressMarkers && progressMarkers.updateMarkerStates) {
+    progressMarkers.updateMarkerStates();
+  }
+  
   console.log(`UI Updated - Turn: ${gameState.currentTurn + 1}/${gameState.maxTurns}, Snippet: ${getCurrentSnippetLength()}s, Status: ${gameState.status}`);
 }
 
@@ -1022,13 +1048,8 @@ function handleVinylClick() {
     return;
   }
   
-  // Set up auto-stop visual feedback - synchronized with audio manager
-  setTimeout(() => {
-    vinylDisc.classList.remove('spinning');
-    vinylCenter.classList.remove('playing');
-    playPauseIcon.classList.remove('playing');
-    gameState.isPlaying = false;
-  }, snippetLength * 1000);
+  // Let the audio manager handle stopping - remove separate timeout
+  // The stopPlayback() method in audioManager will be called when the snippet ends
 }
 
 // Add spacebar support for vinyl player
@@ -1577,6 +1598,9 @@ async function init() {
   
   // Initialize modal search functionality
   initializeModalSearchInput();
+  
+  // Initialize progress markers functionality
+  progressMarkers.init();
   
   // Phase 7: Load song database
   await loadSongDatabase();
@@ -3090,3 +3114,192 @@ function handleIndividualKeyRelease(event) {
 
 // Initialize everything when DOM is loaded
 init(); 
+
+// =====================================
+// PROGRESS MARKERS SYSTEM
+// =====================================
+
+// Progress markers manager for enhanced timestamp display
+const progressMarkers = {
+  markers: [],
+  
+  // Initialize progress markers
+  init() {
+    this.markers = document.querySelectorAll('.progress-marker');
+    this.setupMarkerInteractions();
+    this.updateMarkerTooltips();
+    console.log('Progress markers initialized');
+  },
+  
+  // Setup hover and click interactions for markers
+  setupMarkerInteractions() {
+    this.markers.forEach(marker => {
+      // Add keyboard accessibility
+      marker.setAttribute('tabindex', '0');
+      marker.setAttribute('role', 'button');
+      
+      // Mouse events
+      marker.addEventListener('mouseenter', (e) => this.handleMarkerHover(e, true));
+      marker.addEventListener('mouseleave', (e) => this.handleMarkerHover(e, false));
+      marker.addEventListener('click', (e) => this.handleMarkerClick(e));
+      
+      // Keyboard events for accessibility
+      marker.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.handleMarkerClick(e);
+        }
+      });
+      
+      // Focus events
+      marker.addEventListener('focus', (e) => this.handleMarkerFocus(e, true));
+      marker.addEventListener('blur', (e) => this.handleMarkerFocus(e, false));
+    });
+  },
+  
+  // Handle marker hover interactions
+  handleMarkerHover(event, isEntering) {
+    const marker = event.currentTarget;
+    const seconds = marker.dataset.seconds;
+    
+    if (isEntering) {
+      // Update tooltip with current context
+      this.updateMarkerTooltip(marker, seconds);
+      
+      // Add smooth animation class for enhanced visual feedback
+      marker.classList.add('marker-hovered');
+    } else {
+      marker.classList.remove('marker-hovered');
+    }
+  },
+  
+  // Handle marker focus for accessibility
+  handleMarkerFocus(event, isFocusing) {
+    const marker = event.currentTarget;
+    const seconds = marker.dataset.seconds;
+    
+    if (isFocusing) {
+      this.updateMarkerTooltip(marker, seconds);
+      marker.classList.add('marker-focused');
+    } else {
+      marker.classList.remove('marker-focused');
+    }
+  },
+  
+  // Handle marker click interactions
+  handleMarkerClick(event) {
+    const marker = event.currentTarget;
+    const seconds = parseInt(marker.dataset.seconds);
+    const position = parseFloat(marker.dataset.position);
+    
+    // Announce the action for screen readers
+    this.announceMarkerAction(seconds);
+    
+    // Optional: Jump to that timestamp if in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Marker clicked: ${seconds}s at ${position}%`);
+    }
+  },
+  
+  // Update tooltip content based on current game state
+  updateMarkerTooltip(marker, seconds) {
+    const tooltip = marker.querySelector('.marker-tooltip');
+    if (!tooltip) return;
+    
+    const currentSnippetLength = getCurrentSnippetLength();
+    const markerSeconds = parseInt(seconds);
+    
+    // Determine tooltip message based on game state
+    let tooltipText;
+    if (markerSeconds < currentSnippetLength) {
+      // Past marker - just show duration
+      tooltipText = `${seconds} seconds`;
+    } else if (markerSeconds === currentSnippetLength) {
+      // Current marker
+      tooltipText = `Current snippet is ${seconds} seconds`;
+    } else {
+      // Future marker - just show duration
+      tooltipText = `${seconds} seconds`;
+    }
+    
+    // Update tooltip text and accessibility attributes - show full text
+    tooltip.textContent = `${seconds} seconds`;
+    marker.setAttribute('aria-label', tooltipText);
+    marker.setAttribute('title', tooltipText);
+  },
+  
+  // Calculate how many turns needed to reach a specific snippet length
+  getTurnsNeededForSnippet(targetSeconds) {
+    const snippetLengths = gameState.snippetLengths;
+    const currentIndex = gameState.currentSnippetIndex;
+    
+    for (let i = currentIndex; i < snippetLengths.length; i++) {
+      if (snippetLengths[i] >= targetSeconds) {
+        return i - currentIndex;
+      }
+    }
+    
+    return snippetLengths.length - currentIndex;
+  },
+  
+  // Update all marker tooltips when game state changes
+  updateMarkerTooltips() {
+    this.markers.forEach(marker => {
+      const seconds = marker.dataset.seconds;
+      this.updateMarkerTooltip(marker, seconds);
+    });
+  },
+  
+  // Update marker visual states based on current progress
+  updateMarkerStates() {
+    const currentSnippetLength = getCurrentSnippetLength();
+    
+    this.markers.forEach(marker => {
+      const markerSeconds = parseInt(marker.dataset.seconds);
+      const tick = marker.querySelector('.marker-tick');
+      
+      // Remove all state classes first
+      marker.classList.remove('marker-past', 'marker-current', 'marker-available', 'marker-future', 'marker-unavailable');
+      
+      if (markerSeconds < currentSnippetLength) {
+        // This snippet length has been passed
+        marker.classList.add('marker-past');
+      } else if (markerSeconds === currentSnippetLength) {
+        // This is the current snippet length
+        marker.classList.add('marker-current');
+      } else {
+        // This snippet length is in the future
+        const turnsNeeded = this.getTurnsNeededForSnippet(markerSeconds);
+        if (turnsNeeded <= gameState.maxTurns - gameState.currentTurn) {
+          marker.classList.add('marker-future');
+        } else {
+          marker.classList.add('marker-unavailable');
+        }
+      }
+    });
+    
+    // Update tooltips to reflect current state
+    this.updateMarkerTooltips();
+  },
+  
+  // Announce marker action for screen readers
+  announceMarkerAction(seconds) {
+    // Create a temporary announcement element for screen readers
+    const announcement = document.createElement('div');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.setAttribute('aria-atomic', 'true');
+    announcement.className = 'sr-only';
+    announcement.textContent = `Marker for ${seconds} second snippet selected`;
+    
+    document.body.appendChild(announcement);
+    setTimeout(() => document.body.removeChild(announcement), 1000);
+  },
+  
+  // Animate progress markers when snippet changes
+  animateMarkerTransition() {
+    this.markers.forEach(marker => {
+      marker.classList.add('marker-transition');
+      setTimeout(() => marker.classList.remove('marker-transition'), 300);
+    });
+  }
+};
