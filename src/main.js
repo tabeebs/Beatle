@@ -126,6 +126,11 @@ const audioManager = {
     // Set start position
     this.currentAudio.currentTime = startTime;
     
+    // Get visual elements for coordination
+    const vinylDisc = document.getElementById('vinyl-disc');
+    const vinylCenter = vinylDisc?.querySelector('.vinyl-center');
+    const playPauseIcon = vinylCenter?.querySelector('.play-pause-icon');
+    
     // Play audio
     const playPromise = this.currentAudio.play();
     
@@ -133,6 +138,17 @@ const audioManager = {
       playPromise.then(() => {
         console.log(`Playing audio from ${startTime}s for ${duration || 'full'}s (Victory: ${isVictory})`);
         gameState.isPlaying = true;
+        
+        // Now that audio is actually playing, start visual elements
+        if (vinylDisc && !isVictory) {
+          vinylDisc.classList.add('spinning');
+        }
+        if (vinylCenter && !isVictory) {
+          vinylCenter.classList.add('playing');
+        }
+        if (playPauseIcon && !isVictory) {
+          playPauseIcon.classList.add('playing');
+        }
         
         // Start progress tracking for snippets
         if (duration && !isVictory) {
@@ -146,6 +162,17 @@ const audioManager = {
       }).catch((error) => {
         console.error('Audio play failed:', error);
         gameState.isPlaying = false;
+        
+        // If audio failed, ensure visual elements are reset
+        if (vinylDisc) {
+          vinylDisc.classList.remove('spinning');
+        }
+        if (vinylCenter) {
+          vinylCenter.classList.remove('playing');
+        }
+        if (playPauseIcon) {
+          playPauseIcon.classList.remove('playing');
+        }
       });
     }
     
@@ -157,8 +184,11 @@ const audioManager = {
     const progressFill = document.getElementById('progress-fill');
     if (!progressFill) return;
     
-    const startTime = this.currentAudio.currentTime;
+    // Reset progress bar to 0
+    progressFill.style.width = '0%';
+    
     const maxDuration = 16; // Progress bar always represents 16 seconds total
+    let startTime = this.currentAudio.currentTime;
     
     // Update progress every 50ms for smooth animation
     this.progressIntervalId = setInterval(() => {
@@ -168,8 +198,15 @@ const audioManager = {
       }
       
       const elapsed = this.currentAudio.currentTime - startTime;
+      
+      // Safeguard: if elapsed time seems incorrect, recalibrate startTime
+      if (elapsed < 0) {
+        startTime = this.currentAudio.currentTime;
+        return;
+      }
+      
       // Progress is based on snippet duration relative to the full 16 seconds
-      const progress = Math.min(elapsed / maxDuration, duration / maxDuration) * 100;
+      const progress = Math.min((elapsed / maxDuration) * 100, (duration / maxDuration) * 100);
       
       progressFill.style.width = `${progress}%`;
       
@@ -1015,28 +1052,18 @@ function handleVinylClick() {
   const snippetLength = getCurrentSnippetLength();
   const startTime = 0; // Start from beginning for now (could be randomized later)
   
-  // Visual feedback - start spinning and add playing state
-  vinylDisc.classList.add('spinning');
-  vinylCenter.classList.add('playing');
-  playPauseIcon.classList.add('playing');
-  
   console.log(`Playing ${snippetLength}s snippet from ${startTime}s`);
   
-  // Play the actual audio segment
+  // Play the actual audio segment and coordinate visual elements
   const playSuccess = audioManager.playSegment(startTime, snippetLength, false);
   
   if (!playSuccess) {
-    // If audio failed to play, reset visual state
-    vinylDisc.classList.remove('spinning');
-    vinylCenter.classList.remove('playing');
-    playPauseIcon.classList.remove('playing');
-    gameState.isPlaying = false;
     console.warn('Failed to play audio segment');
     return;
   }
   
-  // Let the audio manager handle stopping - remove separate timeout
-  // The stopPlayback() method in audioManager will be called when the snippet ends
+  // Only start visual feedback after confirming audio will attempt to play
+  // The audioManager will handle the actual coordination in its Promise resolution
 }
 
 // Add spacebar support for vinyl player
