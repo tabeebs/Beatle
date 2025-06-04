@@ -8,13 +8,37 @@ $color-blue: #58a2bfff;        // Blue (vinyl center)
 $color-green: #2cb67dff;       // Green (progress bar fill, submit button)
 $color-charcoal: #323136ff;    // Charcoal (cancel button)
 
+// Progress Bar Blue Color Scheme
+$color-blue-primary: #5B9BD5;   // Primary blue for progress elements
+$color-blue-darker: #4A90C2;    // Darker blue for hover/active states
+$color-blue-lighter: #7BB3E0;   // Lighter blue for subtle accents
+$color-blue-shadow: rgba(91, 155, 213, 0.4); // Blue shadow for depth
+
+// Loss State Colors
+$color-loss-background: #700c0cff;  // Loss state background
+$color-loss-vinyl-center: #b00d19ff; // Loss state vinyl center
+$color-play-again-button: #38761dff; // Play again button
+
+// Victory State Colors
+$color-victory-background: #0b5b21ff;  // Victory state background
+$color-victory-vinyl-center: #41971cff; // Victory state vinyl center
+$color-victory-play-again-button: #b41c27ff; // Victory play again button
+
 // Additional Colors
 $color-white: #ffffff;         // White
 $color-popup-text: #999999;    // Popup body text color (from reset popup spec)
 
+// Attempt Colors (for feedback items)
+$color-attempt-1: #d9ead3ff;   // First attempt - light green
+$color-attempt-2: #ffe599ff;   // Second attempt - light yellow
+$color-attempt-3: #f6b26bff;   // Third attempt - light orange
+$color-attempt-4: #e69138ff;   // Fourth attempt - orange
+$color-attempt-5: #a61c00ff;   // Last attempt - dark red
+
 // Typography
 $font-family-primary: 'Lexend', sans-serif;
 $font-weight-regular: 400;
+$font-weight-medium: 500;
 $font-weight-bold: 700;
 $font-style-italic: italic;
 

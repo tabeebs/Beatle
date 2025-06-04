@@ -8,7 +8,7 @@
     <meta name="author" content="Shafquat Tabeeb">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="assets/icons/music-note.svg">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -65,6 +65,28 @@
                     </div>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progress-fill"></div>
+                        <div class="progress-markers">
+                            <div class="progress-marker" data-position="12.5" data-seconds="2" data-tooltip="Current snippet is 2 seconds">
+                                <div class="marker-tick"></div>
+                                <div class="marker-tooltip">2 seconds</div>
+                            </div>
+                            <div class="progress-marker" data-position="18.75" data-seconds="3" data-tooltip="Current snippet is 3 seconds">
+                                <div class="marker-tick"></div>
+                                <div class="marker-tooltip">3 seconds</div>
+                            </div>
+                            <div class="progress-marker" data-position="31.25" data-seconds="5" data-tooltip="Current snippet is 5 seconds">
+                                <div class="marker-tick"></div>
+                                <div class="marker-tooltip">5 seconds</div>
+                            </div>
+                            <div class="progress-marker" data-position="50" data-seconds="8" data-tooltip="Current snippet is 8 seconds">
+                                <div class="marker-tick"></div>
+                                <div class="marker-tooltip">8 seconds</div>
+                            </div>
+                            <div class="progress-marker" data-position="98.75" data-seconds="16" data-tooltip="16 seconds">
+                                <div class="marker-tick"></div>
+                                <div class="marker-tooltip">16 seconds</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -77,6 +99,11 @@
                             placeholder="Know it? Search for title/artist…"
                             autocomplete="off"
                         />
+                        <div class="keyboard-hint">
+                            <span class="ctrl-hint">Ctrl</span>
+                            <span class="plus-sign">+</span>
+                            <span class="k-hint">K</span>
+                        </div>
                         <img src="assets/icons/dropdown.svg" alt="Dropdown" class="dropdown-icon" />
                         <!-- Phase 7.5: Search Suggestions Drop-up -->
                         <div class="search-suggestions" id="search-suggestions">
@@ -105,14 +132,14 @@
         <!-- How to Play Popup -->
         <div id="how-to-play-popup" class="popup-overlay hidden">
             <div class="popup-content">
-                <h2>How to Play?</h2>
+                <h2>How to Play</h2>
                 <div class="popup-body">
-                    <p>Hear a 2 second snippet of a mystery song.</p>
-                    <p>Type your guess, then hit <strong>Submit!</strong></p>
-                    <p>You can tap <strong>Skip</strong> to hear a little more of the track.</p>
-                    <p>Each time you skip or guess wrong, the snippet gets longer:</p>
-                    <p><strong>2 s → 3 s → 5 s → 8 s → 12 s</strong></p>
-                    <p>You get 5 guesses: can you find the beat?</p>
+                    <p>You'll hear 2 seconds of a mystery song.</p>
+                    <p>Know it? Type your guess, then hit <strong>Submit</strong>!</p>
+                    <p>Not sure? Tap <strong>Skip</strong> to hear a few more seconds:</p>
+                    <p>2s > 3s > 5s > 8s > 16s</p>
+                    <p>You only get 5 attempts - each skip or guess counts.</p>
+                    <p>Can you find the beat?</p>
                 </div>
                 <button class="ready-button" id="ready-button">
                     Yes, I'm ready!
@@ -144,20 +171,74 @@
                 <div class="vinyl-player victory-vinyl">
                     <div class="vinyl-disc spinning" id="victory-vinyl">
                         <div class="vinyl-center">
-                            <img src="assets/icons/play.svg" alt="Play Full Song" class="play-icon" />
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="play-pause-icon">
+                                <path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z" class="pause-bars"/>
+                                <path fill="currentColor" d="M7 4.5v15L20.5 12z" class="play-triangle"/>
+                            </svg>
                         </div>
                     </div>
                 </div>
-                <div class="victory-content">
+                <div class="victory-song-info">
                     <h2 id="victory-song-title">Song Title</h2>
                     <h3 id="victory-artist">Artist Name</h3>
+                </div>
+                <div class="victory-content">
                     <p class="victory-message">Great Job!</p>
                     <p class="victory-time">You got the Beatle within <span id="victory-seconds">0</span> seconds.</p>
                     <button class="play-again-button" id="play-again-button">
+                        Next Round?
+                    </button>
+                </div>
+            </main>
+        </div>
+
+        <!-- Loss State Screen -->
+        <div id="loss-screen" class="loss-screen hidden">
+            <header class="game-header">
+                <h1 class="game-title">Beatle</h1>
+            </header>
+            <main class="loss-main">
+                <div class="vinyl-player loss-vinyl">
+                    <div class="vinyl-disc spinning" id="loss-vinyl">
+                        <div class="vinyl-center loss-vinyl-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="play-pause-icon">
+                                <path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z" class="pause-bars"/>
+                                <path fill="currentColor" d="M7 4.5v15L20.5 12z" class="play-triangle"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="loss-song-info">
+                    <h2 id="loss-song-title">Song Title</h2>
+                    <h3 id="loss-artist">Artist Name</h3>
+                </div>
+                <div class="loss-content">
+                    <p class="loss-message">Better luck next time...</p>
+                    <button class="play-again-button loss-play-again" id="loss-play-again-button">
                         Play Again?
                     </button>
                 </div>
             </main>
+        </div>
+
+        <!-- Modal Search Experience -->
+        <div id="search-modal" class="search-modal hidden">
+            <div class="search-modal-content">
+                <div class="modal-search-box">
+                    <input 
+                        type="text" 
+                        id="modal-search-input" 
+                        placeholder="Know it? Search for title/artist…"
+                        autocomplete="off"
+                    />
+                    <!-- Modal search suggestions -->
+                    <div class="modal-search-suggestions" id="modal-search-suggestions">
+                        <div class="modal-suggestions-list" id="modal-suggestions-list">
+                            <!-- Suggestions will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

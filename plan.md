@@ -157,6 +157,29 @@
     -   [✔️] Ensure progress bar duration matches current snippet length (2s, 3s, 5s, 8s, 12s).
 
 ---
+---
+### Phase 4.5: Audio Synchronization & Win State Audio Polish
+Objective: Ensure accurate audio snippet playback duration, synchronized progress bar, and correct audio behavior on the Victory Screen, including immediate playback and proper pause/play functionality with visual feedback.
+
+Audio Snippet & Progress Bar Synchronization (Game Screen):
+[✔️] Investigate and fix discrepancies between audio snippet playback duration and the visual progress bar animation.
+[✔️] Ensure audio snippets play for their full intended duration (e.g., exactly 2s, 3s, etc.) without ending abruptly.
+[✔️] Verify the progress bar accurately reflects the audio playback progress and duration for all snippet lengths.
+Victory Screen Audio Playback:
+[✔️] Modify logic so that the full correctly guessed song begins playing immediately when the Victory Screen is displayed and the vinyl starts its idle spin.
+[✔️] Ensure the vinyl initially shows a pause icon when the song starts playing on the Victory Screen.
+Victory Screen Pause/Play Functionality:
+[✔️] Implement click event on the vinyl/pause icon or Spacebar press to toggle audio pause/play on the Victory Screen.
+[✔️] On Pause:
+[✔️] The audio track pauses.
+[✔️] The vinyl stops its idle rotation and resets to its initial static position.
+[✔️] The pause icon transitions/morphs into a play icon.
+[✔️] On Play (after being paused):
+[✔️] The audio track resumes playing from where it was paused.
+[✔️] The vinyl resumes its idle spin animation.
+[✔️] The play icon transitions/morphs back into a pause icon.
+[✔️] Remove any behavior causing the vinyl to rotate faster when played after being paused; it should consistently use the idle spin animation.
+---
 
 ### Phase 5: Guess Input, Submission & Feedback UI
 
@@ -192,6 +215,27 @@
 
 ---
 
+---
+
+### Phase 5.5: Game State Feedback UI & Persistence Enhancements
+Objective: Improve the visibility, formatting, font, and persistence of feedback for incorrect guesses and skips, making the game screen dynamically adjust to show all feedback.
+
+Feedback Display & Layout:
+[✔️] Modify the feedback display area so that it doesn't require zooming out to be visible.
+[✔️] Implement logic so that when new feedback (incorrect guess or skip) is added, the overall game screen content area expands vertically.
+[✔️] Ensure the page becomes scrollable if the accumulated feedback items exceed the viewport height, allowing users to see all previous guesses/skips.
+Feedback Persistence:
+[✔️] Change the behavior of feedback messages (incorrect guesses and skips) so they remain visible on the screen for the entire duration of the current game round.
+[✔️] Users should be able to scroll and review all feedback from their current attempt at guessing the song.
+Feedback Styling & Formatting:
+[✔️] Change the font for all feedback text (incorrect guesses, "Skipped" messages) to Lexend.
+[✔️] Correct the formatting for incorrect guess feedback:
+[✔️] Remove attempt numbers (e.g., "4th incorrect guess").
+[✔️] Display the feedback strictly as: [Artist(s)] - [Song Title]. (e.g., "Manna Dey - Coffee Houser Sei Addata"). Ensure this uses the actual artist and title of the guessed song.
+[✔️] Apply smooth animations (e.g., fade-in, slide-in from bottom) for new feedback items appearing, consistent with Phase 7.5.
+
+---
+
 ### Phase 6: Reset Confirmation & Victory Screen UI
 
 **Objective:** Implement the UI and functionality for the "Reset round?" confirmation popup and the "Victory Screen."
@@ -222,6 +266,29 @@
         -   [✔️] Rounded, #2cb67dff background, white text.
         -   [✔️] On click: restart game with a new track at 2s snippet (back to Slide 4, game screen state, reset timer).
     -   [✔️] Logic to display Victory Screen upon correct guess.
+
+---
+
+---
+Phase 6.5: Victory Screen Polish & "Next Round" Logic Refinements
+Objective: Address visibility and layout issues on the Victory Screen, update button functionality for subsequent rounds, and ensure accurate timer calculation.
+
+Victory Screen Layout & Visibility:
+[✔️] Adjust the CSS/layout of the Victory Screen to ensure the "Play Again?" (soon to be "Next Round?") button and other result details are fully visible without requiring the user to zoom out from 100%.
+[✔️] Reposition the song title and artist name elements on the Victory Screen to be vertically closer to the vinyl graphic than the "Great Job!" text.
+"Next Round?" Functionality:
+[✔️] Change the text of the "Play Again?" button on the Victory Screen to "Next Round?".
+[✔️] Implement logic so that when the "Next Round?" button is clicked:
+[✔️] A new, different song is selected for the next round (ensure it's not the same song just played).
+[✔️] The game transitions directly to the Game Screen (Slide 4 state with a 2s snippet) without displaying the "How to Play?" popup.
+Timer Accuracy:
+[✔️] Initial Round Timer:
+[✔️] Ensure the timer starts counting precisely when the user clicks the "Yes, I'm ready!" button on the "How to Play?" popup.
+[✔️] Ensure the timer stops precisely when the user submits the correct guess.
+[✔️] Subsequent Rounds Timer ("Next Round?"):
+[✔️] Ensure the timer starts counting precisely when the user clicks the "Next Round?" button on the Victory Screen.
+[✔️] Ensure the timer stops precisely when the user submits the correct guess for the new song.
+[✔️] Fix the bug causing the Victory Screen to always display "You got the Beatle within 0 seconds." The correct calculated elapsed time should be displayed.
 
 ---
 
