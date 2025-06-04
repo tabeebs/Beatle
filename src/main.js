@@ -274,40 +274,27 @@ let songDatabase = [];
 
 // Load song metadata from JSON file
 async function loadSongDatabase() {
-  try {
-    console.log('Loading song database...');
-    const response = await fetch('/assets/songs/song_metadata.json');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+        console.log("Loading song database...");
+        const response = await fetch('assets/songs/song_metadata.json');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        songDatabase = await response.json();
+        console.log(`Song database loaded: ${songDatabase.length} songs available`);
+        
+        // Initialize played songs tracking
+        const playedSongs = songDatabase.filter(song => song.id !== undefined);
+        if (playedSongs.length === 0) {
+            console.warn('No songs with valid IDs found in database');
+        }
+        
+    } catch (error) {
+        console.error('Failed to load song database:', error);
+        throw error;
     }
-    
-    songDatabase = await response.json();
-    console.log(`Song database loaded: ${songDatabase.length} songs available`);
-    
-    // Validate that all songs have required fields
-    const validSongs = songDatabase.filter(song => 
-      song.id && song.title && song.artist && song.filename
-    );
-    
-    if (validSongs.length !== songDatabase.length) {
-      console.warn(`${songDatabase.length - validSongs.length} songs have invalid metadata`);
-    }
-    
-    return validSongs;
-  } catch (error) {
-    console.error('Failed to load song database:', error);
-    // Fallback to mock data for development
-    console.log('Falling back to mock song data');
-    return [
-      {
-        id: 'demo-song-001',
-        title: 'Demo Song',
-        artist: 'Demo Artist',
-        filename: 'demo.mp3'
-      }
-    ];
-  }
 }
 
 // Get random song from database
@@ -321,7 +308,7 @@ function getRandomSong() {
   const selectedSong = songDatabase[randomIndex];
   
   // Construct the audio URL using the filename
-  const audioUrl = `/assets/songs/${selectedSong.filename}`;
+  const audioUrl = `assets/songs/${selectedSong.filename}`;
   
   return {
     id: selectedSong.id,
@@ -360,7 +347,7 @@ async function getRandomSongWithFallback(excludePlayedSongs = true) {
     const song = availableSongs[randomIndex];
     
     // Construct the audio URL using the filename
-    const audioUrl = `/assets/songs/${song.filename}`;
+    const audioUrl = `assets/songs/${song.filename}`;
     const songWithUrl = {
       id: song.id,
       title: song.title,
@@ -392,7 +379,7 @@ async function getRandomSongWithFallback(excludePlayedSongs = true) {
   // If all attempts fail, return the last song anyway and let audio loading handle the error
   console.warn('Could not verify any audio files, proceeding with last selected song');
   const fallbackSong = availableSongs[Math.floor(Math.random() * availableSongs.length)];
-  const audioUrl = `/assets/songs/${fallbackSong.filename}`;
+  const audioUrl = `assets/songs/${fallbackSong.filename}`;
   const songWithUrl = {
     id: fallbackSong.id,
     title: fallbackSong.title,
